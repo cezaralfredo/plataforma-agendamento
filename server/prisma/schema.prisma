@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CategoriaServico {
+  SALAO
+  BARBEARIA
+}
+
+enum StatusAgendamento {
+  PENDENTE
+  CONFIRMADO
+  CANCELADO
+  CONCLUIDO
+}
+
+enum StatusPagamento {
+  AGUARDANDO
+  PAGO
+  EXPIRADO
+  REEMBOLSADO
+}
+
+enum PerfilUsuario {
+  SUPER_ADMIN
+  PROFISSIONAL
+}
+
+model Cliente {
+  id           String       @id @default(uuid())
+  nome         String
+  telefone     String       @unique
+  email        String?
+  saldoCredito Float        @default(0)
+  criadoEm     DateTime     @default(now())
+  atualizadoEm DateTime     @updatedAt
+
+  agendamentos Agendamento[]
+  creditos     Credito[]
+  sessoes      SessaoBot[]
+
+  @@map("clientes")
+}
+
+model Usuario {
+  id           String         @id @default(uuid())
+  nome         String
+  email        String         @unique
+  senha        String
+  perfil       PerfilUsuario
+  profissional Profissional?  @relation(fields: [profissionalId], references: [id])
+  profissionalId String?      @unique
+  ativo        Boolean        @default(true)
+  criadoEm     DateTime       @default(now())
+  atualizadoEm DateTime       @updatedAt
+
+  @@map("usuarios")
+}
+
+model Profissional {
+  id              String   @id @default(uuid())
+  nome            String
+  especialidades  String[]
+  diasTrabalho    Int[]    @default([1,2,3,4,5,6])
+  horarioInicio   String   @default("08:00")
+  horarioFim      String   @default("18:00")
+  ativo           Boolean  @default(true)
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  usuario     Usuario?
+  agendamentos Agendamento[]
+  bloqueios   BloqueioAgenda[]
+
+  @@map("profissionais")
+}
+
+model Servico {
+  id             Int             @id @default(autoincrement())
+  nome           String
+  categoria      CategoriaServico
+  valor          Float
+  duracaoMinutos Int
+  ativo          Boolean         @default(true)
+  criadoEm       DateTime        @default(now())
+  atualizadoEm   DateTime        @updatedAt
+
+  agendamentos Agendamento[]
+
+  @@map("servicos")
+}
+
+model Agendamento {
+  id               String            @id @default(uuid())
+  codigoUnico      String            @unique @default(uuid())
+  clienteId        String
+  profissionalId   String
+  servicoId        Int
+  dataHora         DateTime
+  status           StatusAgendamento @default(PENDENTE)
+  valorPago        Float             @default(0)
+  creditoUtilizado Float             @default(0)
+  criadoEm         DateTime          @default(now())
+  atualizadoEm     DateTime          @updatedAt
+
+  cliente     Cliente     @relation(fields: [clienteId], references: [id])
+  profissional Profissional @relation(fields: [profissionalId], references: [id])
+  servico     Servico     @relation(fields: [servicoId], references: [id])
+  pagamento   Pagamento?
+
+  @@map("agendamentos")
+}
+
+model Pagamento {
+  id            String         @id @default(uuid())
+  agendamentoId String         @unique
+  txidPix       String         @unique
+  valor         Float
+  status        StatusPagamento @default(AGUARDANDO)
+  qrCode        String?
+  copiaECola    String?
+  criadoEm      DateTime       @default(now())
+  pagoEm        DateTime?
+  expiradoEm    DateTime?
+
+  agendamento Agendamento @relation(fields: [agendamentoId], references: [id])
+
+  @@map("pagamentos")
+}
+
+model Credito {
+  id        String   @id @default(uuid())
+  clienteId String
+  valor     Float
+  origem    String
+  utilizado Boolean  @default(false)
+  criadoEm  DateTime @default(now())
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+
+  @@map("creditos")
+}
+
+model BloqueioAgenda {
+  id             String   @id @default(uuid())
+  profissionalId String
+  data           DateTime
+  motivo         String?
+  criadoEm       DateTime @default(now())
+
+  profissional Profissional @relation(fields: [profissionalId], references: [id])
+
+  @@map("bloqueios_agenda")
+}
+
+model SessaoBot {
+  id          String   @id @default(uuid())
+  clienteId   String
+  etapa       String
+  dados       Json?
+  expiraEm    DateTime
+  criadoEm    DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+
+  @@map("sessoes_bot")
+}
+
+model Configuracao {
+  id    String @id @default(uuid())
+  chave String @unique
+  valor String
+
+  @@map("configuracoes")
+}
+
+model LogBot {
+  id        String   @id @default(uuid())
+  telefone  String?
+  mensagem  String
+  tipo      String
+  criadoEm  DateTime @default(now())
+
+  @@map("logs_bot")
+}
