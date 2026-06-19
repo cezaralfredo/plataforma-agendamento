@@ -60,7 +60,7 @@ export function useClienteDetalhes(clienteId: string | null) {
           api.get(`/clientes/${clienteId}/creditos`),
         ]);
         if (!cancelled) {
-          setAgendamentos(agendamentosRes.data);
+          setAgendamentos(agendamentosRes.data.data || agendamentosRes.data);
           setCreditos(creditosRes.data);
         }
       } catch {

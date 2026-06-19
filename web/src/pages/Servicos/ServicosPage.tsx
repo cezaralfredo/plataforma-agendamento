@@ -6,11 +6,11 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 interface Servico {
-  id: string;
+  id: string | number;
   nome: string;
   categoria: string;
   valor: number;
-  duracao: number;
+  duracaoMinutos: number;
   ativo: boolean;
 }
 
@@ -45,7 +45,7 @@ function ServicoModal({
           nome: servico.nome,
           categoria: servico.categoria,
           valor: String(servico.valor),
-          duracao: String(servico.duracao),
+          duracao: String(servico.duracaoMinutos),
         }
       : { nome: '', categoria: 'SALAO', valor: '', duracao: '30' },
   });
@@ -58,7 +58,7 @@ function ServicoModal({
               nome: servico.nome,
               categoria: servico.categoria,
               valor: String(servico.valor),
-              duracao: String(servico.duracao),
+              duracao: String(servico.duracaoMinutos),
             }
           : { nome: '', categoria: 'SALAO', valor: '', duracao: '30' }
       );
@@ -144,7 +144,7 @@ export default function ServicosPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingServico, setEditingServico] = useState<Servico | null>(null);
   const [saving, setSaving] = useState(false);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | number | null>(null);
 
   const fetchServicos = async () => {
     setLoading(true);
@@ -171,7 +171,7 @@ export default function ServicosPage() {
         nome: data.nome,
         categoria: data.categoria,
         valor: parseFloat(data.valor),
-        duracao: parseInt(data.duracao, 10),
+        duracaoMinutos: parseInt(data.duracao, 10),
       };
 
       if (editingServico) {
@@ -275,7 +275,7 @@ export default function ServicosPage() {
                     key={servico.id}
                     className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                   >
-                    <td className="py-3 text-gray-800 font-mono text-xs">{servico.id.slice(0, 8)}</td>
+                    <td className="py-3 text-gray-800 font-mono text-xs">{String(servico.id).slice(0, 8)}</td>
                     <td className="py-3 text-gray-800 font-medium">{servico.nome}</td>
                     <td className="py-3">
                       <span
@@ -289,7 +289,7 @@ export default function ServicosPage() {
                       </span>
                     </td>
                     <td className="py-3 text-gray-800">{formatCurrency(servico.valor)}</td>
-                    <td className="py-3 text-gray-600">{servico.duracao} min</td>
+                    <td className="py-3 text-gray-600">{servico.duracaoMinutos} min</td>
                     <td className="py-3">
                       {isSuperAdmin ? (
                         <button

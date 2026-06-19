@@ -335,14 +335,10 @@ router.get('/:id/horarios', verifyToken, async (req: Request, res: Response, nex
     while (isBefore(current, fimDoDia)) {
       const slotFim = addMinutes(current, duracaoMinutos);
 
-      if (!isAfter(slotFim, fimDoDia)) {
+      if (!isAfter(slotFim, fimDoDia) && !isBefore(current, new Date())) {
         const conflito = agendamentos.some((ag) => {
           const agFim = addMinutes(ag.dataHora, ag.servico.duracaoMinutos);
-          return (
-            isWithinInterval(current, { start: ag.dataHora, end: agFim }) ||
-            isWithinInterval(slotFim, { start: ag.dataHora, end: agFim }) ||
-            (isBefore(ag.dataHora, current) && isAfter(agFim, slotFim))
-          );
+          return current < agFim && slotFim > ag.dataHora;
         });
 
         const bloqueado = bloqueios.some((b) =>

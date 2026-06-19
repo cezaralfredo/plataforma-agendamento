@@ -408,8 +408,7 @@ export class AgendamentoService {
   }
 
   private isDiaTrabalho(data: Date, diasTrabalho: number[]): boolean {
-    const diaSemana = data.getDay() === 0 ? 7 : data.getDay();
-    return diasTrabalho.includes(diaSemana);
+    return diasTrabalho.includes(data.getDay());
   }
 
   private gerarCodigoAgendamento(): string {

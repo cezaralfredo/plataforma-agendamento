@@ -50,7 +50,7 @@ export default function NovoAgendamentoModal({ open, onClose, onSuccess }: NovoA
   const selectedProfissionalId = watch('profissionalId');
   const selectedData = watch('data');
 
-  const selectedServico = servicos.find((s) => s.id === selectedServicoId);
+  const selectedServico = servicos.find((s) => String(s.id) === selectedServicoId);
 
   const profissionaisFiltrados = selectedServico
     ? profissionais.filter((p) =>
@@ -67,14 +67,15 @@ export default function NovoAgendamentoModal({ open, onClose, onSuccess }: NovoA
     }
     setHorarioState((prev) => ({ ...prev, loading: true }));
     try {
-      const res = await api.get<string[]>(`/profissionais/${selectedProfissionalId}/horarios`, {
-        params: { data: selectedData },
+      const res = await api.get<string[] | { horariosDisponiveis: string[] }>(`/profissionais/${selectedProfissionalId}/horarios`, {
+        params: { data: selectedData, servicoId: selectedServicoId },
       });
-      setHorarioState({ horarios: res.data, loading: false });
+      const horarios = Array.isArray(res.data) ? res.data : res.data.horariosDisponiveis;
+      setHorarioState({ horarios: horarios || [], loading: false });
     } catch {
       setHorarioState({ horarios: [], loading: false });
     }
-  }, [selectedProfissionalId, selectedData]);
+  }, [selectedProfissionalId, selectedData, selectedServicoId]);
 
   useEffect(() => {
     fetchHorarios();

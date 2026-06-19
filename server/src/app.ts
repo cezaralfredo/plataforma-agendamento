@@ -34,10 +34,10 @@ app.use('/api', apiRouter);
 
 app.use('/webhook/whatsapp', processarMensagem);
 
-app.use(errorHandler);
-
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+app.use(errorHandler);
 
 export default app;

@@ -284,10 +284,36 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     const dataHora = parseISO(dataHoraString);
     const dataFim = new Date(dataHora.getTime() + servico.duracaoMinutos * 60000);
 
+    if (dataHora < new Date()) {
+      res.status(400).json({ erro: 'Nao e possivel agendar em data/hora passada' });
+      return;
+    }
+
+    if (!profissional.diasTrabalho.includes(dataHora.getDay())) {
+      res.status(400).json({ erro: 'Profissional nao atende neste dia da semana' });
+      return;
+    }
+
+    const [hInicio, mInicio] = profissional.horarioInicio.split(':').map(Number);
+    const [hFim, mFim] = profissional.horarioFim.split(':').map(Number);
+    const inicioExpediente = new Date(dataHora);
+    inicioExpediente.setHours(hInicio, mInicio, 0, 0);
+    const fimExpediente = new Date(dataHora);
+    fimExpediente.setHours(hFim, mFim, 0, 0);
+
+    if (dataHora < inicioExpediente || dataFim > fimExpediente) {
+      res.status(400).json({ erro: 'Horario fora do expediente do profissional' });
+      return;
+    }
+
     const conflitos = await prisma.agendamento.findMany({
       where: {
         profissionalId: data.profissionalId,
         status: { in: ['PENDENTE', 'CONFIRMADO'] },
+        dataHora: {
+          gte: startOfDay(dataHora),
+          lte: endOfDay(dataHora),
+        },
       },
       include: { servico: { select: { duracaoMinutos: true } } },
     });

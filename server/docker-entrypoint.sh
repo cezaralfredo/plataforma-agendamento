@@ -18,7 +18,7 @@ npx prisma db push --accept-data-loss
 echo "✅ Schema sincronizado!"
 
 echo "🌱 Executando seed..."
-npx ts-node prisma/seed.ts
+TS_NODE_COMPILER_OPTIONS='{"module":"CommonJS","moduleResolution":"Node"}' npx ts-node --transpile-only prisma/seed.ts
 echo "✅ Seed concluído!"
 
 echo "🚀 Iniciando servidor..."
