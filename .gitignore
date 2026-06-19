@@ -20,3 +20,6 @@ certs/*.key
 
 # Prisma
 server/prisma/migrations/
+
+# Production env
+.env.prod

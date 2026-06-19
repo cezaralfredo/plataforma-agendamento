@@ -1,3 +1,5 @@
+name: plataforma-agendamento
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -5,10 +7,10 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: agendamento
-      POSTGRES_PASSWORD: agendamento123
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agendamento123}
       POSTGRES_DB: plataforma_agendamento
-    ports:
-      - '5432:5432'
+    expose:
+      - 5432
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -16,18 +18,22 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - agendamento-net
 
   redis:
     image: redis:7-alpine
     container_name: agendamento-redis
     restart: unless-stopped
-    ports:
-      - '6379:6379'
+    expose:
+      - 6379
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - agendamento-net
 
   evolution-postgres:
     image: postgres:16-alpine
@@ -35,7 +41,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: evolution
-      POSTGRES_PASSWORD: evolution123
+      POSTGRES_PASSWORD: ${EVOLUTION_POSTGRES_PASSWORD:-evolution123}
       POSTGRES_DB: evolution
     volumes:
       - evolution_postgres_data:/var/lib/postgresql/data
@@ -44,20 +50,22 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - agendamento-net
 
   evolution:
     image: evoapicloud/evolution-api:latest
     container_name: agendamento-evolution
     restart: unless-stopped
-    ports:
-      - '8080:8080'
+    expose:
+      - 8080
     environment:
-      SERVER_URL: http://localhost:8080
+      SERVER_URL: http://evolution.${DOMAIN:-localhost}:8080
       AUTHENTICATION_TYPE: apikey
-      AUTHENTICATION_API_KEY: evo-api-key-agendamento
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-evo-api-key-agendamento}
       DATABASE_ENABLED: true
       DATABASE_PROVIDER: postgresql
-      DATABASE_CONNECTION_URI: postgresql://evolution:evolution123@evolution-postgres:5432/evolution
+      DATABASE_CONNECTION_URI: postgresql://evolution:${EVOLUTION_POSTGRES_PASSWORD:-evolution123}@evolution-postgres:5432/evolution
       DATABASE_SAVE_DATA_INSTANCE: false
       DATABASE_SAVE_DATA_NEW_MESSAGE: false
       DATABASE_SAVE_MESSAGE_UPDATE: false
@@ -81,55 +89,75 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
+    networks:
+      - agendamento-net
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.evolution.rule=Host(`evolution.${DOMAIN:-localhost}`)
+      - traefik.http.services.evolution.loadbalancer.server.port=8080
 
   api:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
+    image: ghcr.io/${GITHUB_USER:-cezaralfredo}/plataforma-agendamento-api:${IMAGE_TAG:-latest}
     container_name: agendamento-api
     restart: unless-stopped
-    ports:
-      - '3000:3000'
+    expose:
+      - 3000
     environment:
-      DATABASE_URL: postgresql://agendamento:agendamento123@postgres:5432/plataforma_agendamento
+      DATABASE_URL: postgresql://agendamento:${POSTGRES_PASSWORD:-agendamento123}@postgres:5432/plataforma_agendamento
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: jwt-secret-plataforma-agendamento-2024
+      JWT_SECRET: ${JWT_SECRET:-jwt-secret-plataforma-agendamento-2024}
+      JWT_EXPIRES_IN: 7d
       NODE_ENV: production
-      FRONTEND_URL: http://localhost:5173
+      PORT: 3000
+      FRONTEND_URL: https://${DOMAIN:-localhost}
       EVOLUTION_API_URL: http://evolution:8080
-      EVOLUTION_API_KEY: evo-api-key-agendamento
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-evo-api-key-agendamento}
       EVOLUTION_INSTANCE_NAME: agendamento-bot
       EVOLUTION_WEBHOOK_URL: 'http://api:3000/webhook/whatsapp'
-      WHATSAPP_ADMIN_NUMBER: ''
-      ASAAS_API_KEY: ''
+      WHATSAPP_ADMIN_NUMBER: ${WHATSAPP_ADMIN_NUMBER:-}
+      ASAAS_API_KEY: ${ASAAS_API_KEY:-}
       ASAAS_SANDBOX: 'true'
-    entrypoint: ["/app/docker-entrypoint.sh"]
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes: []
     healthcheck:
       test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/health']
       interval: 15s
       timeout: 10s
       retries: 5
       start_period: 90s
+    networks:
+      - agendamento-net
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.api.rule=Host(`api.${DOMAIN:-localhost}`)
+      - traefik.http.services.api.loadbalancer.server.port=3000
 
   web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
+    image: ghcr.io/${GITHUB_USER:-cezaralfredo}/plataforma-agendamento-web:${IMAGE_TAG:-latest}
     container_name: agendamento-web
     restart: unless-stopped
-    ports:
-      - '5173:80'
+    expose:
+      - 80
+    environment:
+      API_URL: https://api.${DOMAIN:-localhost}
     depends_on:
       api:
         condition: service_healthy
+    networks:
+      - agendamento-net
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.web.rule=Host(`${DOMAIN:-localhost}`)
+      - traefik.http.services.web.loadbalancer.server.port=80
 
 volumes:
   postgres_data:
   evolution_postgres_data:
   evolution_store:
+
+networks:
+  agendamento-net:
+    driver: bridge
