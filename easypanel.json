@@ -43,6 +43,18 @@
       "description": "Usar ambiente sandbox do Asaas (true/false)",
       "required": false,
       "value": "true"
+    },
+    "IMAGE_REPOSITORY": {
+      "label": "Repositório GHCR",
+      "description": "Caminho owner/repository usado nas imagens publicadas (ex: cezaralfredo/plataforma_agendamento)",
+      "required": true,
+      "value": "cezaralfredo/plataforma_agendamento"
+    },
+    "IMAGE_TAG": {
+      "label": "Tag da imagem",
+      "description": "Tag Docker publicada no GHCR",
+      "required": false,
+      "value": "latest"
     }
   },
   "services": {
@@ -55,14 +67,24 @@
       "type": "redis",
       "version": "7"
     },
+    "evolution-postgres": {
+      "type": "postgresql",
+      "version": "16",
+      "volumes": ["evolution_postgres_data"]
+    },
+    "evolution": {
+      "type": "docker",
+      "image": "evoapicloud/evolution-api:latest",
+      "ports": ["8080"]
+    },
     "api": {
       "type": "docker",
-      "image": "ghcr.io/cezaralfredo/plataforma-agendamento-api:latest",
+      "image": "ghcr.io/cezaralfredo/plataforma_agendamento-api:latest",
       "ports": ["3000"]
     },
     "web": {
       "type": "docker",
-      "image": "ghcr.io/cezaralfredo/plataforma-agendamento-web:latest",
+      "image": "ghcr.io/cezaralfredo/plataforma_agendamento-web:latest",
       "ports": ["80"]
     }
   }
