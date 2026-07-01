@@ -1,16 +1,18 @@
 import prisma from '../../services/prisma';
 import { SessionManager } from '../services/sessionManager';
 import { BotResponse, SessaoBot } from '../types';
+import { Tenant } from '@prisma/client';
 
 const sessionManager = new SessionManager();
 
-export async function escolhaProfissional(telefone: string, mensagem: string, session: SessaoBot): Promise<BotResponse> {
+export async function escolhaProfissional(telefone: string, mensagem: string, session: SessaoBot, tenant: Tenant): Promise<BotResponse> {
   const msg = mensagem.trim().toLowerCase();
   const dados = (session.dados || {}) as any;
+  const tenantId = tenant.id;
 
   if (msg === 'voltar' || msg === '0') {
     const servicos = await prisma.servico.findMany({
-      where: { ativo: true },
+      where: { ativo: true, tenantId },
       orderBy: { nome: 'asc' },
     });
 
@@ -50,7 +52,7 @@ export async function escolhaProfissional(telefone: string, mensagem: string, se
     const profissionalId = msg.replace('prof_', '');
     const profissional = await prisma.profissional.findUnique({ where: { id: profissionalId } });
 
-    if (!profissional || !profissional.ativo) {
+    if (!profissional || !profissional.ativo || profissional.tenantId !== tenantId) {
       return { type: 'text', text: 'Profissional não encontrado. Tente novamente.' };
     }
 
@@ -71,7 +73,7 @@ export async function escolhaProfissional(telefone: string, mensagem: string, se
   }
 
   const profissionais = await prisma.profissional.findMany({
-    where: { ativo: true },
+    where: { ativo: true, tenantId },
     orderBy: { nome: 'asc' },
   });
 

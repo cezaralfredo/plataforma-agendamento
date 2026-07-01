@@ -3,12 +3,14 @@ import { SessionManager } from '../services/sessionManager';
 import { BotResponse, SessaoBot } from '../types';
 import { gerarCodigoUnico, gerarTxidPix } from '../../utils/helpers';
 import { addMinutes } from 'date-fns';
+import { Tenant } from '@prisma/client';
 
 const sessionManager = new SessionManager();
 
-export async function confirmacao(telefone: string, mensagem: string, session: SessaoBot): Promise<BotResponse> {
+export async function confirmacao(telefone: string, mensagem: string, session: SessaoBot, tenant: Tenant): Promise<BotResponse> {
   const msg = mensagem.trim().toLowerCase();
   const dados = (session.dados || {}) as any;
+  const tenantId = tenant.id;
 
   if (msg === 'voltar' || msg === '0') {
     await sessionManager.updateSession(session.id, 'ESCOLHA_DATA', { ...dados });
@@ -41,7 +43,9 @@ export async function confirmacao(telefone: string, mensagem: string, session: S
       };
     }
 
-    const cliente = await prisma.cliente.findUnique({ where: { telefone } });
+    const cliente = await prisma.cliente.findUnique({
+      where: { tenantId_telefone: { tenantId, telefone } },
+    });
     if (!cliente) {
       return { type: 'text', text: 'Cliente não encontrado. Envie "menu" para recomeçar.' };
     }
@@ -54,6 +58,7 @@ export async function confirmacao(telefone: string, mensagem: string, session: S
 
     const agendamento = await prisma.agendamento.create({
       data: {
+        tenantId,
         codigoUnico: gerarCodigoUnico(),
         clienteId: cliente.id,
         profissionalId,
@@ -67,6 +72,7 @@ export async function confirmacao(telefone: string, mensagem: string, session: S
     const txidPix = gerarTxidPix();
     const pagamento = await prisma.pagamento.create({
       data: {
+        tenantId,
         agendamentoId: agendamento.id,
         txidPix,
         valor: servico.valor,

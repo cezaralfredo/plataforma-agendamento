@@ -33,6 +33,7 @@ app.use('/api', limiter);
 app.use('/api', apiRouter);
 
 app.use('/webhook/whatsapp', processarMensagem);
+app.use('/webhook/whatsapp/:tenantSlug', processarMensagem);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

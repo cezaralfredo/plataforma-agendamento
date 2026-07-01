@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Scissors, Mail, Lock, Loader2 } from 'lucide-react';
+import { Scissors, Mail, Lock, Building2, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [tenantSlug, setTenantSlug] = useState(localStorage.getItem('tenantSlug') || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
@@ -21,13 +22,18 @@ export default function LoginPage() {
       return;
     }
 
+    if (!tenantSlug) {
+      setError('Informe o slug do estabelecimento.');
+      return;
+    }
+
     setLoading(true);
     try {
-      await login(email, senha);
+      await login(email, senha, tenantSlug);
       toast.success('Login realizado com sucesso!');
       navigate('/dashboard');
     } catch (err: any) {
-      const msg = err?.response?.data?.error || 'Erro ao fazer login. Verifique suas credenciais.';
+      const msg = err?.response?.data?.error || err?.response?.data?.erro || 'Erro ao fazer login. Verifique suas credenciais.';
       setError(msg);
       toast.error(msg);
     } finally {
@@ -42,14 +48,31 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-lg mb-4">
             <Scissors size={32} className="text-primary-600" />
           </div>
-          <h1 className="text-3xl font-bold text-white">Salão & Barbearia</h1>
-          <p className="text-purple-200 mt-1">Painel de Agendamento</p>
+          <h1 className="text-3xl font-bold text-white">Plataforma de Agendamento</h1>
+          <p className="text-purple-200 mt-1">Painel de Gerenciamento</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">Entrar no Sistema</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Estabelecimento</label>
+              <div className="relative">
+                <Building2 size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={tenantSlug}
+                  onChange={(e) => setTenantSlug(e.target.value)}
+                  placeholder="slug-do-seu-salao"
+                  className="input-field pl-10"
+                  disabled={loading}
+                  autoComplete="off"
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Slug único do seu estabelecimento</p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
               <div className="relative">

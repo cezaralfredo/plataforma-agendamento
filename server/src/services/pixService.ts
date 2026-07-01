@@ -1,6 +1,11 @@
 import axios from 'axios';
-import prisma from './prisma';
 import { config } from '../config';
+
+export interface TenantAsaasConfig {
+  apiKey: string;
+  apiUrl: string;
+  sandbox: boolean;
+}
 
 interface AsaasCustomer {
   object: string;
@@ -22,9 +27,9 @@ interface AsaasPayment {
   paymentDate?: string;
   externalReference?: string;
   pixQrCode?: {
-  encodedImage: string;
-  payload: string;
-  expirationDate: string;
+    encodedImage: string;
+    payload: string;
+    expirationDate: string;
   };
 }
 
@@ -39,10 +44,12 @@ export class PixService {
   private baseUrl: string;
   private apiKey: string;
 
-  constructor() {
-    const env = config.asaas.sandbox ? 'sandbox' : 'producao';
-    this.baseUrl = config.asaas.apiUrl || (env === 'sandbox' ? 'https://api-sandbox.asaas.com/v3' : 'https://api.asaas.com/v3');
-    this.apiKey = config.asaas.apiKey;
+  constructor(tenantConfig?: Partial<TenantAsaasConfig>) {
+    const env = tenantConfig?.sandbox ?? config.asaas.sandbox ? 'sandbox' : 'producao';
+    this.baseUrl = tenantConfig?.apiUrl || config.asaas.apiUrl || (
+      env === 'sandbox' ? 'https://api-sandbox.asaas.com/v3' : 'https://api.asaas.com/v3'
+    );
+    this.apiKey = tenantConfig?.apiKey || config.asaas.apiKey;
   }
 
   private headers() {
@@ -50,6 +57,10 @@ export class PixService {
       'Content-Type': 'application/json',
       'access_token': this.apiKey,
     };
+  }
+
+  hasValidConfig(): boolean {
+    return !!this.apiKey;
   }
 
   async criarCliente(nome: string, telefone: string): Promise<string> {
@@ -177,4 +188,26 @@ export class PixService {
       throw new Error('Falha ao estornar cobrança no Asaas');
     }
   }
+}
+
+export async function getPixServiceForTenant(tenantId: string): Promise<PixService> {
+  const { default: prisma } = await import('./prisma');
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: {
+      asaasApiKey: true,
+      asaasApiUrl: true,
+      asaasSandbox: true,
+    },
+  });
+
+  if (tenant && tenant.asaasApiKey) {
+    return new PixService({
+      apiKey: tenant.asaasApiKey,
+      apiUrl: tenant.asaasApiUrl,
+      sandbox: tenant.asaasSandbox,
+    });
+  }
+
+  return new PixService();
 }

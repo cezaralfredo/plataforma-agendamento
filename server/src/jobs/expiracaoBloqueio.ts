@@ -4,8 +4,6 @@ import { config } from '../config';
 import { NotificacaoService } from '../services/notificacaoService';
 import { addMinutes, format } from 'date-fns';
 
-const notificacaoService = new NotificacaoService();
-
 const expiracaoQueue = new Queue<{}>('expiracao-bloqueio', config.redis.url, {
   defaultJobOptions: {
     removeOnComplete: true,
@@ -41,6 +39,7 @@ expiracaoQueue.process(async () => {
         cliente: { select: { nome: true, telefone: true } },
         servico: { select: { nome: true } },
         pagamento: { select: { id: true } },
+        tenant: { select: { evolutionApiKey: true, evolutionInstanceName: true } },
       },
     });
 
@@ -55,6 +54,7 @@ expiracaoQueue.process(async () => {
       include: {
         cliente: { select: { nome: true, telefone: true } },
         servico: { select: { nome: true } },
+        tenant: { select: { evolutionApiKey: true, evolutionInstanceName: true } },
       },
     });
 
@@ -91,6 +91,11 @@ expiracaoQueue.process(async () => {
       try {
         const dataFormatada = format(agendamento.dataHora, "dd/MM/yyyy");
         const horarioFormatado = format(agendamento.dataHora, "HH:mm");
+
+        const notificacaoService = new NotificacaoService(
+          agendamento.tenant.evolutionApiKey || undefined,
+          agendamento.tenant.evolutionInstanceName || undefined,
+        );
 
         await notificacaoService.enviarMensagem(
           agendamento.cliente.telefone,
@@ -149,7 +154,7 @@ async function agendarJobRecorrente(): Promise<void> {
 }
 
 agendarJobRecorrente().catch((err) => {
-  console.error('[ExpiracaoBloqueioJob] Erro ao agendar job recorrente:', err.message);
+  console.error('[ExpiracaoBloqueioJob] Erro ao agendar jobs recorrentes:', err.message);
 });
 
 export { expiracaoQueue };

@@ -3,12 +3,14 @@ import { SessionManager } from '../services/sessionManager';
 import { BotResponse, SessaoBot } from '../types';
 import { format } from 'date-fns';
 import { formatarMoeda, formatarDataHora } from '../../utils/helpers';
+import { Tenant } from '@prisma/client';
 
 const sessionManager = new SessionManager();
 
-export async function cancelamento(telefone: string, mensagem: string, session: SessaoBot): Promise<BotResponse> {
+export async function cancelamento(telefone: string, mensagem: string, session: SessaoBot, tenant: Tenant): Promise<BotResponse> {
   const msg = mensagem.trim().toLowerCase();
   const dados = (session.dados || {}) as any;
+  const tenantId = tenant.id;
 
   if (msg === 'voltar' || msg === '0' || msg === 'menu') {
     await sessionManager.updateSession(session.id, 'MENU_SERVICOS', {});
@@ -22,7 +24,9 @@ export async function cancelamento(telefone: string, mensagem: string, session: 
     };
   }
 
-  const cliente = await prisma.cliente.findUnique({ where: { telefone } });
+  const cliente = await prisma.cliente.findUnique({
+    where: { tenantId_telefone: { tenantId, telefone } },
+  });
   if (!cliente) {
     await sessionManager.updateSession(session.id, 'MENU_SERVICOS', {});
     return { type: 'text', text: 'Cliente não encontrado.' };
@@ -82,6 +86,7 @@ export async function cancelamento(telefone: string, mensagem: string, session: 
       const valorCredito = agendamento.valorPago * 0.9;
       await prisma.credito.create({
         data: {
+          tenantId,
           clienteId: cliente.id,
           valor: valorCredito,
           origem: `Cancelamento ${agendamento.codigoUnico}`,
@@ -125,6 +130,7 @@ export async function cancelamento(telefone: string, mensagem: string, session: 
 
     const agendamentos = await prisma.agendamento.findMany({
       where: {
+        tenantId,
         clienteId: cliente.id,
         status: { in: ['PENDENTE', 'CONFIRMADO'] },
         dataHora: { gte: hoje },
@@ -189,6 +195,7 @@ export async function cancelamento(telefone: string, mensagem: string, session: 
   if (session.etapa === 'REMARCACAO') {
     const agendamentos = await prisma.agendamento.findMany({
       where: {
+        tenantId,
         clienteId: cliente.id,
         status: { in: ['PENDENTE', 'CONFIRMADO'] },
         dataHora: { gte: hoje },
@@ -227,6 +234,7 @@ export async function cancelamento(telefone: string, mensagem: string, session: 
       if (agendamento) {
         await prisma.credito.create({
           data: {
+            tenantId,
             clienteId: cliente.id,
             valor: agendamento.valorPago,
             origem: `Remarcação ${agendamento.codigoUnico}`,

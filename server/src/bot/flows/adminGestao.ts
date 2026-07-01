@@ -1,13 +1,13 @@
 import prisma from '../../services/prisma';
-import { config } from '../../config';
 import { SessionManager } from '../services/sessionManager';
 import { BotResponse, SessaoBot } from '../types';
 import { format, startOfDay, endOfDay } from 'date-fns';
+import { Tenant } from '@prisma/client';
 
 const sessionManager = new SessionManager();
 
-export async function adminGestao(telefone: string, mensagem: string, session: SessaoBot): Promise<BotResponse> {
-  if (telefone !== config.evolution.adminNumber) {
+export async function adminGestao(telefone: string, mensagem: string, session: SessaoBot, tenant: Tenant): Promise<BotResponse> {
+  if (telefone !== tenant.whatsappAdminNumber) {
     return {
       type: 'text',
       text: 'Acesso restrito a administradores.',
@@ -16,6 +16,7 @@ export async function adminGestao(telefone: string, mensagem: string, session: S
 
   const msg = mensagem.trim().toLowerCase();
   const dados = JSON.parse(JSON.stringify((session.dados || {}) as any));
+  const tenantId = tenant.id;
 
   if (msg === 'voltar' || msg === '0' || msg === 'menu' || msg === 'sair') {
     await sessionManager.updateSession(session.id, 'MENU_SERVICOS', {});
@@ -75,6 +76,7 @@ export async function adminGestao(telefone: string, mensagem: string, session: S
       if (profissionalId && dataStr) {
         await prisma.bloqueioAgenda.create({
           data: {
+            tenantId,
             profissionalId,
             data: new Date(dataStr),
             motivo,
@@ -103,7 +105,7 @@ export async function adminGestao(telefone: string, mensagem: string, session: S
     }
 
     const profissionais = await prisma.profissional.findMany({
-      where: { ativo: true },
+      where: { ativo: true, tenantId },
       orderBy: { nome: 'asc' },
     });
 
@@ -159,6 +161,7 @@ export async function adminGestao(telefone: string, mensagem: string, session: S
 
     const agendamentosHoje = await prisma.agendamento.findMany({
       where: {
+        tenantId,
         dataHora: { gte: inicio, lte: fim },
         status: { notIn: ['CANCELADO'] },
       },
@@ -170,9 +173,9 @@ export async function adminGestao(telefone: string, mensagem: string, session: S
       orderBy: { dataHora: 'asc' },
     });
 
-    const profissionaisAtivos = await prisma.profissional.count({ where: { ativo: true } });
+    const profissionaisAtivos = await prisma.profissional.count({ where: { ativo: true, tenantId } });
     const agendamentosPendentes = await prisma.agendamento.count({
-      where: { status: 'PENDENTE' },
+      where: { tenantId, status: 'PENDENTE' },
     });
     const faturamentoHoje = agendamentosHoje
       .filter(a => a.status === 'CONFIRMADO' || a.status === 'CONCLUIDO')
@@ -207,14 +210,14 @@ export async function adminGestao(telefone: string, mensagem: string, session: S
   }
 
   if (dados.adminStep === 'estatisticas') {
-    const totalClientes = await prisma.cliente.count();
-    const totalAgendamentos = await prisma.agendamento.count();
-    const totalConfirmados = await prisma.agendamento.count({ where: { status: 'CONFIRMADO' } });
-    const totalCancelados = await prisma.agendamento.count({ where: { status: 'CANCELADO' } });
-    const totalServicos = await prisma.servico.count({ where: { ativo: true } });
-    const totalProfissionais = await prisma.profissional.count({ where: { ativo: true } });
+    const totalClientes = await prisma.cliente.count({ where: { tenantId } });
+    const totalAgendamentos = await prisma.agendamento.count({ where: { tenantId } });
+    const totalConfirmados = await prisma.agendamento.count({ where: { tenantId, status: 'CONFIRMADO' } });
+    const totalCancelados = await prisma.agendamento.count({ where: { tenantId, status: 'CANCELADO' } });
+    const totalServicos = await prisma.servico.count({ where: { ativo: true, tenantId } });
+    const totalProfissionais = await prisma.profissional.count({ where: { ativo: true, tenantId } });
     const totalFaturamento = await prisma.agendamento.aggregate({
-      where: { status: { in: ['CONFIRMADO', 'CONCLUIDO'] } },
+      where: { tenantId, status: { in: ['CONFIRMADO', 'CONCLUIDO'] } },
       _sum: { valorPago: true },
     });
 

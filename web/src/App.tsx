@@ -9,6 +9,7 @@ import ServicosPage from './pages/Servicos/ServicosPage';
 import ClientesPage from './pages/Clientes/ClientesPage';
 import FinanceiroPage from './pages/Financeiro/FinanceiroPage';
 import ConfiguracoesPage from './pages/Configuracoes/ConfiguracoesPage';
+import TenantsPage from './pages/Tenants/TenantsPage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { usuario, loading } = useAuth();
@@ -29,6 +30,7 @@ function AppRoutes() {
         <Route path="clientes" element={<ClientesPage />} />
         <Route path="financeiro" element={<FinanceiroPage />} />
         <Route path="configuracoes" element={<ConfiguracoesPage />} />
+        <Route path="tenants" element={<TenantsPage />} />
       </Route>
     </Routes>
   );

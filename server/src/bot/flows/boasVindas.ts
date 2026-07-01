@@ -1,21 +1,25 @@
 import prisma from '../../services/prisma';
 import { SessionManager } from '../services/sessionManager';
 import { BotResponse, SessaoBot } from '../types';
+import { Tenant } from '@prisma/client';
 
 const sessionManager = new SessionManager();
 
-export async function boasVindas(telefone: string, mensagem: string, session: SessaoBot): Promise<BotResponse> {
+export async function boasVindas(telefone: string, mensagem: string, session: SessaoBot, tenant: Tenant): Promise<BotResponse> {
   const msg = mensagem.trim();
+  const tenantId = tenant.id;
 
   if (session.etapa === 'SAUDACAO') {
-    const cliente = await prisma.cliente.findUnique({ where: { telefone } });
+    const cliente = await prisma.cliente.findUnique({
+      where: { tenantId_telefone: { tenantId, telefone } },
+    });
 
     if (!cliente || !cliente.nome || cliente.nome.trim() === '') {
       await sessionManager.updateSession(session.id, 'NOME', {});
       return {
         type: 'text',
         text: [
-          'Olá! Seja bem-vindo(a) ao nosso salão! 💈',
+          `Olá! Seja bem-vindo(a) ao ${tenant.nome}! 💈`,
           '',
           'Para começarmos, por favor me informe seu nome completo:',
         ].join('\n'),
@@ -47,9 +51,9 @@ export async function boasVindas(telefone: string, mensagem: string, session: Se
     }
 
     await prisma.cliente.upsert({
-      where: { telefone },
+      where: { tenantId_telefone: { tenantId, telefone } },
       update: { nome: msg },
-      create: { telefone, nome: msg },
+      create: { tenantId, telefone, nome: msg },
     });
 
     await sessionManager.updateSession(session.id, 'MENU_SERVICOS', {});

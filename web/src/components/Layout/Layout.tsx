@@ -1,7 +1,7 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  LayoutDashboard, CalendarDays, Users, Scissors, UserCircle, DollarSign, Settings, LogOut, Menu, X
+  LayoutDashboard, CalendarDays, Users, Scissors, UserCircle, DollarSign, Settings, Building2, LogOut, Menu, X
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -13,10 +13,11 @@ const navItems = [
   { to: '/clientes', icon: UserCircle, label: 'Clientes' },
   { to: '/financeiro', icon: DollarSign, label: 'Financeiro' },
   { to: '/configuracoes', icon: Settings, label: 'Configurações' },
+  { to: '/tenants', icon: Building2, label: 'Tenants' },
 ];
 
 export default function Layout() {
-  const { usuario, logout, isSuperAdmin } = useAuth();
+  const { usuario, tenant, logout, isSuperAdmin } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -34,11 +35,11 @@ export default function Layout() {
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
-          <div>
-            <h1 className="text-lg font-bold text-primary-700">Salão & Barbearia</h1>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-bold text-primary-700 truncate">{tenant?.nome || 'Plataforma'}</h1>
             <p className="text-xs text-gray-500">Painel de Agendamento</p>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden">
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden ml-2">
             <X size={20} />
           </button>
         </div>
@@ -59,11 +60,14 @@ export default function Layout() {
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
           <div className="flex items-center justify-between">
-            <div className="text-sm">
-              <p className="font-medium text-gray-700">{usuario?.nome}</p>
-              <p className="text-gray-500 text-xs">{usuario?.perfil === 'SUPER_ADMIN' ? 'Administrador' : 'Profissional'}</p>
+            <div className="text-sm min-w-0 flex-1">
+              <p className="font-medium text-gray-700 truncate">{usuario?.nome}</p>
+              <p className="text-gray-500 text-xs truncate">
+                {usuario?.perfil === 'SUPER_ADMIN' ? 'Administrador' : 'Profissional'}
+                {tenant ? ` • ${tenant.slug}` : ''}
+              </p>
             </div>
-            <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-600 transition-colors" title="Sair">
+            <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-600 transition-colors flex-shrink-0" title="Sair">
               <LogOut size={18} />
             </button>
           </div>

@@ -7,11 +7,17 @@ export class EvolutionInitializer {
   private instance: string;
   private webhookUrl: string;
 
-  constructor() {
-    this.baseUrl = config.evolution.apiUrl;
-    this.apiKey = config.evolution.apiKey;
-    this.instance = config.evolution.instanceName;
-    this.webhookUrl = process.env.EVOLUTION_WEBHOOK_URL || 'http://api:3000/webhook/whatsapp';
+  constructor(
+    private tenantId?: string,
+    evolutionApiUrl?: string,
+    evolutionApiKey?: string,
+    instanceName?: string,
+    webhookUrl?: string,
+  ) {
+    this.baseUrl = evolutionApiUrl || config.evolution.apiUrl;
+    this.apiKey = evolutionApiKey || config.evolution.apiKey;
+    this.instance = instanceName || config.evolution.instanceName;
+    this.webhookUrl = webhookUrl || process.env.EVOLUTION_WEBHOOK_URL || 'http://api:3000/webhook/whatsapp';
   }
 
   private headers() {
@@ -22,22 +28,23 @@ export class EvolutionInitializer {
   }
 
   async init(): Promise<void> {
-    console.log('[Evolution] Verificando instância...');
+    const prefix = this.tenantId ? `[Evolution:${this.tenantId}]` : '[Evolution]';
+    console.log(`${prefix} Verificando instância ${this.instance}...`);
 
     const status = await this.getStatus();
     if (status === 'connected') {
-      console.log('[Evolution] Instância já conectada');
+      console.log(`${prefix} Instância ${this.instance} já conectada`);
       await this.configureWebhook();
       return;
     }
 
     const exists = await this.instanceExists();
     if (!exists) {
-      console.log('[Evolution] Criando instância...');
+      console.log(`${prefix} Criando instância ${this.instance}...`);
       await this.createInstance();
     }
 
-    console.log('[Evolution] Instância pronta. Escaneie o QR Code em:');
+    console.log(`${prefix} Instância pronta. Escaneie o QR Code em:`);
     console.log(`  GET ${this.baseUrl}/instance/connect/${this.instance}`);
 
     await this.configureWebhook();
@@ -87,9 +94,11 @@ export class EvolutionInitializer {
         },
         { headers: this.headers() }
       );
-      console.log('[Evolution] Webhook configurado');
+      const prefix = this.tenantId ? `[Evolution:${this.tenantId}]` : '[Evolution]';
+      console.log(`${prefix} Webhook configurado para ${this.instance} -> ${this.webhookUrl}`);
     } catch (error) {
-      console.warn('[Evolution] Erro ao configurar webhook (pode configurar manualmente):', error);
+      const prefix = this.tenantId ? `[Evolution:${this.tenantId}]` : '[Evolution]';
+      console.warn(`${prefix} Erro ao configurar webhook (pode configurar manualmente):`, error);
     }
   }
 
@@ -103,5 +112,9 @@ export class EvolutionInitializer {
     } catch {
       return 'disconnected';
     }
+  }
+
+  getQrCodeUrl(): string {
+    return `${this.baseUrl}/instance/connect/${this.instance}`;
   }
 }

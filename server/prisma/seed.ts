@@ -8,10 +8,29 @@ async function main() {
 
   const senhaHash = await bcrypt.hash('admin123', 10);
 
+  const tenant = await prisma.tenant.upsert({
+    where: { slug: 'demo' },
+    update: {
+      nome: 'Salão & Barbearia Demo',
+      ativo: true,
+    },
+    create: {
+      id: 'default',
+      nome: 'Salão & Barbearia Demo',
+      slug: 'demo',
+      plano: 'BASIC',
+      asaasSandbox: true,
+      evolutionInstanceName: 'agendamento-demo',
+      whatsappAdminNumber: process.env.WHATSAPP_ADMIN_NUMBER || '',
+    },
+  });
+  console.log(`Tenant criado: ${tenant.slug} (${tenant.id})`);
+
   const admin = await prisma.usuario.upsert({
-    where: { email: 'admin@salaobarbearia.com' },
+    where: { tenantId_email: { tenantId: tenant.id, email: 'admin@salaobarbearia.com' } },
     update: {},
     create: {
+      tenantId: tenant.id,
       nome: 'Administrador',
       email: 'admin@salaobarbearia.com',
       senha: senhaHash,
@@ -23,9 +42,10 @@ async function main() {
   const profissionais = await Promise.all([
     prisma.profissional.upsert({
       where: { id: 'prof-001' },
-      update: {},
+      update: { tenantId: tenant.id },
       create: {
         id: 'prof-001',
+        tenantId: tenant.id,
         nome: 'Carla Silva',
         especialidades: ['Corte Feminino', 'Escova', 'Coloração', 'Progressiva'],
         diasTrabalho: [1, 2, 3, 4, 5, 6],
@@ -35,9 +55,10 @@ async function main() {
     }),
     prisma.profissional.upsert({
       where: { id: 'prof-002' },
-      update: {},
+      update: { tenantId: tenant.id },
       create: {
         id: 'prof-002',
+        tenantId: tenant.id,
         nome: 'Rafael Oliveira',
         especialidades: ['Corte Masculino', 'Barba', 'Corte + Barba', 'Hidratação Capilar'],
         diasTrabalho: [1, 2, 3, 4, 5, 6],
@@ -47,9 +68,10 @@ async function main() {
     }),
     prisma.profissional.upsert({
       where: { id: 'prof-003' },
-      update: {},
+      update: { tenantId: tenant.id },
       create: {
         id: 'prof-003',
+        tenantId: tenant.id,
         nome: 'Juliana Costa',
         especialidades: ['Manicure', 'Pedicure', 'Escova', 'Corte Feminino'],
         diasTrabalho: [1, 2, 3, 4, 5],
@@ -63,9 +85,10 @@ async function main() {
   const servicos = await Promise.all([
     prisma.servico.upsert({
       where: { id: 1 },
-      update: {},
+      update: { tenantId: tenant.id },
       create: {
         id: 1,
+        tenantId: tenant.id,
         nome: 'Corte Feminino',
         categoria: CategoriaServico.SALAO,
         valor: 65.00,
@@ -74,9 +97,10 @@ async function main() {
     }),
     prisma.servico.upsert({
       where: { id: 2 },
-      update: {},
+      update: { tenantId: tenant.id },
       create: {
         id: 2,
+        tenantId: tenant.id,
         nome: 'Escova',
         categoria: CategoriaServico.SALAO,
         valor: 50.00,
@@ -85,9 +109,10 @@ async function main() {
     }),
     prisma.servico.upsert({
       where: { id: 3 },
-      update: {},
+      update: { tenantId: tenant.id },
       create: {
         id: 3,
+        tenantId: tenant.id,
         nome: 'Coloração',
         categoria: CategoriaServico.SALAO,
         valor: 120.00,
@@ -96,9 +121,10 @@ async function main() {
     }),
     prisma.servico.upsert({
       where: { id: 4 },
-      update: {},
+      update: { tenantId: tenant.id },
       create: {
         id: 4,
+        tenantId: tenant.id,
         nome: 'Progressiva',
         categoria: CategoriaServico.SALAO,
         valor: 180.00,
@@ -107,9 +133,10 @@ async function main() {
     }),
     prisma.servico.upsert({
       where: { id: 5 },
-      update: {},
+      update: { tenantId: tenant.id },
       create: {
         id: 5,
+        tenantId: tenant.id,
         nome: 'Manicure',
         categoria: CategoriaServico.SALAO,
         valor: 35.00,
@@ -118,9 +145,10 @@ async function main() {
     }),
     prisma.servico.upsert({
       where: { id: 6 },
-      update: {},
+      update: { tenantId: tenant.id },
       create: {
         id: 6,
+        tenantId: tenant.id,
         nome: 'Pedicure',
         categoria: CategoriaServico.SALAO,
         valor: 35.00,
@@ -129,9 +157,10 @@ async function main() {
     }),
     prisma.servico.upsert({
       where: { id: 7 },
-      update: {},
+      update: { tenantId: tenant.id },
       create: {
         id: 7,
+        tenantId: tenant.id,
         nome: 'Corte Masculino',
         categoria: CategoriaServico.BARBEARIA,
         valor: 45.00,
@@ -140,9 +169,10 @@ async function main() {
     }),
     prisma.servico.upsert({
       where: { id: 8 },
-      update: {},
+      update: { tenantId: tenant.id },
       create: {
         id: 8,
+        tenantId: tenant.id,
         nome: 'Barba',
         categoria: CategoriaServico.BARBEARIA,
         valor: 30.00,
@@ -151,9 +181,10 @@ async function main() {
     }),
     prisma.servico.upsert({
       where: { id: 9 },
-      update: {},
+      update: { tenantId: tenant.id },
       create: {
         id: 9,
+        tenantId: tenant.id,
         nome: 'Corte + Barba',
         categoria: CategoriaServico.BARBEARIA,
         valor: 65.00,
@@ -162,9 +193,10 @@ async function main() {
     }),
     prisma.servico.upsert({
       where: { id: 10 },
-      update: {},
+      update: { tenantId: tenant.id },
       create: {
         id: 10,
+        tenantId: tenant.id,
         nome: 'Hidratação Capilar',
         categoria: CategoriaServico.BARBEARIA,
         valor: 55.00,
@@ -176,42 +208,44 @@ async function main() {
 
   const configuracoes = await Promise.all([
     prisma.configuracao.upsert({
-      where: { chave: 'horario_funcionamento_inicio' },
+      where: { tenantId_chave: { tenantId: tenant.id, chave: 'horario_funcionamento_inicio' } },
       update: {},
-      create: { chave: 'horario_funcionamento_inicio', valor: '08:00' },
+      create: { tenantId: tenant.id, chave: 'horario_funcionamento_inicio', valor: '08:00' },
     }),
     prisma.configuracao.upsert({
-      where: { chave: 'horario_funcionamento_fim' },
+      where: { tenantId_chave: { tenantId: tenant.id, chave: 'horario_funcionamento_fim' } },
       update: {},
-      create: { chave: 'horario_funcionamento_fim', valor: '19:00' },
+      create: { tenantId: tenant.id, chave: 'horario_funcionamento_fim', valor: '19:00' },
     }),
     prisma.configuracao.upsert({
-      where: { chave: 'tempo_bloqueio_provisorio' },
+      where: { tenantId_chave: { tenantId: tenant.id, chave: 'tempo_bloqueio_provisorio' } },
       update: {},
-      create: { chave: 'tempo_bloqueio_provisorio', valor: '15' },
+      create: { tenantId: tenant.id, chave: 'tempo_bloqueio_provisorio', valor: '15' },
     }),
     prisma.configuracao.upsert({
-      where: { chave: 'horas_antecedencia_cancelamento' },
+      where: { tenantId_chave: { tenantId: tenant.id, chave: 'horas_antecedencia_cancelamento' } },
       update: {},
-      create: { chave: 'horas_antecedencia_cancelamento', valor: '2' },
+      create: { tenantId: tenant.id, chave: 'horas_antecedencia_cancelamento', valor: '2' },
     }),
     prisma.configuracao.upsert({
-      where: { chave: 'prazo_expiracao_credito_dias' },
+      where: { tenantId_chave: { tenantId: tenant.id, chave: 'prazo_expiracao_credito_dias' } },
       update: {},
-      create: { chave: 'prazo_expiracao_credito_dias', valor: '365' },
+      create: { tenantId: tenant.id, chave: 'prazo_expiracao_credito_dias', valor: '365' },
     }),
     prisma.configuracao.upsert({
-      where: { chave: 'mensagem_boas_vindas' },
+      where: { tenantId_chave: { tenantId: tenant.id, chave: 'mensagem_boas_vindas' } },
       update: {},
       create: {
+        tenantId: tenant.id,
         chave: 'mensagem_boas_vindas',
         valor: 'Olá! Seja bem-vindo(a) ao Salão & Barbearia! 🎉 Vou te ajudar a agendar seu horário. Primeiro, me diga seu nome:',
       },
     }),
     prisma.configuracao.upsert({
-      where: { chave: 'endereco_estabelecimento' },
+      where: { tenantId_chave: { tenantId: tenant.id, chave: 'endereco_estabelecimento' } },
       update: {},
       create: {
+        tenantId: tenant.id,
         chave: 'endereco_estabelecimento',
         valor: 'Rua Exemplo, 123 - Centro',
       },
@@ -220,6 +254,11 @@ async function main() {
   console.log(`✅ ${configuracoes.length} configurações criadas`);
 
   console.log('🎉 Seed concluído com sucesso!');
+  console.log('');
+  console.log('📋 Credenciais do admin:');
+  console.log('   Email: admin@salaobarbearia.com');
+  console.log('   Senha: admin123');
+  console.log(`   Slug do tenant: ${tenant.slug}`);
 }
 
 main()

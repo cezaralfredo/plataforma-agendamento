@@ -3,6 +3,7 @@ import { SessionManager } from '../services/sessionManager';
 import { BotResponse, SessaoBot } from '../types';
 import { addDays, format, parseISO, startOfDay } from 'date-fns';
 import { horariosDisponiveis } from '../../utils/helpers';
+import { Tenant } from '@prisma/client';
 
 const sessionManager = new SessionManager();
 
@@ -14,9 +15,10 @@ function formatDateKey(date: Date): string {
   return format(date, 'yyyy-MM-dd');
 }
 
-export async function escolhaHorario(telefone: string, mensagem: string, session: SessaoBot): Promise<BotResponse> {
+export async function escolhaHorario(telefone: string, mensagem: string, session: SessaoBot, tenant: Tenant): Promise<BotResponse> {
   const msg = mensagem.trim().toLowerCase();
   const dados = (session.dados || {}) as any;
+  const tenantId = tenant.id;
 
   if (msg === 'voltar' || msg === '0') {
     if (session.etapa === 'ESCOLHA_HORARIO') {
@@ -32,7 +34,7 @@ export async function escolhaHorario(telefone: string, mensagem: string, session
       };
     }
     const profissionais = await prisma.profissional.findMany({
-      where: { ativo: true },
+      where: { ativo: true, tenantId },
       orderBy: { nome: 'asc' },
     });
     await sessionManager.updateSession(session.id, 'ESCOLHA_PROFISSIONAL', { ...dados, data: undefined });
@@ -184,6 +186,7 @@ export async function escolhaHorario(telefone: string, mensagem: string, session
 
     const agendamentos = await prisma.agendamento.findMany({
       where: {
+        tenantId,
         profissionalId,
         dataHora: {
           gte: startOfSelectedDate,
@@ -196,6 +199,7 @@ export async function escolhaHorario(telefone: string, mensagem: string, session
 
     const bloqueios = await prisma.bloqueioAgenda.findMany({
       where: {
+        tenantId,
         profissionalId,
         data: {
           gte: startOfSelectedDate,

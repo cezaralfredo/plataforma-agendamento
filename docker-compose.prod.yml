@@ -93,7 +93,7 @@ services:
       - traefik.http.services.evolution.loadbalancer.server.port=8080
 
   api:
-    image: ghcr.io/${IMAGE_REPOSITORY:-cezaralfredo/plataforma_agendamento}-api:${IMAGE_TAG:-latest}
+    image: ghcr.io/${IMAGE_REPOSITORY:-cezaralfredo/plataforma_agendamento}-server:${IMAGE_TAG:-latest}
     restart: unless-stopped
     expose:
       - 3000
@@ -108,10 +108,12 @@ services:
       EVOLUTION_API_URL: http://evolution:8080
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-evo-api-key-agendamento}
       EVOLUTION_INSTANCE_NAME: agendamento-bot
-      EVOLUTION_WEBHOOK_URL: 'http://api:3000/webhook/whatsapp'
+      EVOLUTION_WEBHOOK_URL: 'http://api:3000/webhook/whatsapp/${DEFAULT_TENANT_SLUG:-demo}'
       WHATSAPP_ADMIN_NUMBER: ${WHATSAPP_ADMIN_NUMBER:-}
       ASAAS_API_KEY: ${ASAAS_API_KEY:-}
       ASAAS_SANDBOX: ${ASAAS_SANDBOX:-true}
+      DEFAULT_TENANT_SLUG: ${DEFAULT_TENANT_SLUG:-demo}
+      DISABLE_TENANT_CREATION: ${DISABLE_TENANT_CREATION:-false}
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,15 +1,16 @@
 import prisma from '../../services/prisma';
-import { PixService } from '../../services/pixService';
+import { getPixServiceForTenant } from '../../services/pixService';
 import { SessionManager } from '../services/sessionManager';
 import { BotResponse, SessaoBot } from '../types';
 import { addMinutes } from 'date-fns';
+import { Tenant } from '@prisma/client';
 
 const sessionManager = new SessionManager();
-const pixService = new PixService();
 
-export async function pagamentoPIX(telefone: string, mensagem: string, session: SessaoBot): Promise<BotResponse> {
+export async function pagamentoPIX(telefone: string, mensagem: string, session: SessaoBot, tenant: Tenant): Promise<BotResponse> {
   const msg = mensagem.trim().toLowerCase();
   const dados = (session.dados || {}) as any;
+  const tenantId = tenant.id;
 
   if (msg === 'menu') {
     await sessionManager.updateSession(session.id, 'MENU_SERVICOS', {});
@@ -129,6 +130,14 @@ export async function pagamentoPIX(telefone: string, mensagem: string, session: 
 
     if (!qrCode && !copiaECola) {
       try {
+        const pixService = await getPixServiceForTenant(tenantId);
+        if (!pixService.hasValidConfig()) {
+          return {
+            type: 'text',
+            text: 'Pagamento PIX não configurado para este estabelecimento. Entre em contato com o administrador.',
+          };
+        }
+
         const cobranca = await pixService.gerarCobranca(
           agendamento.valorPago,
           agendamento.cliente.nome,
@@ -142,6 +151,7 @@ export async function pagamentoPIX(telefone: string, mensagem: string, session: 
         await prisma.pagamento.upsert({
           where: { agendamentoId },
           create: {
+            tenantId,
             agendamentoId,
             txidPix: cobranca.asaasPaymentId,
             valor: agendamento.valorPago,
@@ -170,6 +180,8 @@ export async function pagamentoPIX(telefone: string, mensagem: string, session: 
         };
       }
     }
+
+    const nomeEstabelecimento = tenant.nome || 'Estabelecimento';
 
     return {
       type: 'text',

@@ -4,13 +4,14 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import prisma from '../../services/prisma';
 import { config } from '../../config';
-import { verifyToken } from '../middleware/auth';
+import { getTenantId, verifyToken } from '../middleware/auth';
 
 const router = Router();
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
   senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  tenantSlug: z.string().optional(),
 });
 
 const registerSchema = z.object({
@@ -28,10 +29,24 @@ const changePasswordSchema = z.object({
 
 router.post('/login', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, senha } = loginSchema.parse(req.body);
+    const { email, senha, tenantSlug } = loginSchema.parse(req.body);
+
+    let tenantId = getTenantId(req);
+
+    if (!tenantId && tenantSlug) {
+      const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } });
+      if (tenant && tenant.ativo) {
+        tenantId = tenant.id;
+      }
+    }
+
+    if (!tenantId) {
+      res.status(400).json({ erro: 'Tenant não identificado. Informe o slug ou x-tenant-id.' });
+      return;
+    }
 
     const usuario = await prisma.usuario.findUnique({
-      where: { email },
+      where: { tenantId_email: { tenantId, email } },
     });
 
     if (!usuario) {
@@ -54,6 +69,7 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
     const token = jwt.sign(
       {
         id: usuario.id,
+        tenantId: usuario.tenantId,
         email: usuario.email,
         perfil: usuario.perfil,
         profissionalId: usuario.profissionalId || undefined,
@@ -66,6 +82,7 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
       token,
       usuario: {
         id: usuario.id,
+        tenantId: usuario.tenantId,
         nome: usuario.nome,
         email: usuario.email,
         perfil: usuario.perfil,
@@ -84,9 +101,15 @@ router.post('/register', verifyToken, async (req: Request, res: Response, next: 
     }
 
     const data = registerSchema.parse(req.body);
+    const tenantId = getTenantId(req);
+
+    if (!tenantId) {
+      res.status(400).json({ erro: 'Tenant não identificado' });
+      return;
+    }
 
     const emailExistente = await prisma.usuario.findUnique({
-      where: { email: data.email },
+      where: { tenantId_email: { tenantId, email: data.email } },
     });
 
     if (emailExistente) {
@@ -95,8 +118,8 @@ router.post('/register', verifyToken, async (req: Request, res: Response, next: 
     }
 
     if (data.profissionalId) {
-      const profissionalExiste = await prisma.profissional.findUnique({
-        where: { id: data.profissionalId },
+      const profissionalExiste = await prisma.profissional.findFirst({
+        where: { id: data.profissionalId, tenantId },
       });
 
       if (!profissionalExiste) {
@@ -118,6 +141,7 @@ router.post('/register', verifyToken, async (req: Request, res: Response, next: 
 
     const usuario = await prisma.usuario.create({
       data: {
+        tenantId,
         nome: data.nome,
         email: data.email,
         senha: senhaHash,
@@ -126,6 +150,7 @@ router.post('/register', verifyToken, async (req: Request, res: Response, next: 
       },
       select: {
         id: true,
+        tenantId: true,
         nome: true,
         email: true,
         perfil: true,
@@ -147,6 +172,7 @@ router.get('/me', verifyToken, async (req: Request, res: Response, next: NextFun
       where: { id: req.usuario!.id },
       select: {
         id: true,
+        tenantId: true,
         nome: true,
         email: true,
         perfil: true,

@@ -13,7 +13,7 @@ import {
   format,
 } from 'date-fns';
 import prisma from '../../services/prisma';
-import { verifyToken, requireSuperAdmin } from '../middleware/auth';
+import { getTenantId, verifyToken, requireSuperAdmin } from '../middleware/auth';
 
 const router = Router();
 
@@ -54,8 +54,9 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
   try {
     const apenasAtivos = req.query.ativos !== 'false';
     const servicoId = req.query.servicoId ? parseInt(req.query.servicoId as string) : undefined;
+    const tenantId = getTenantId(req);
 
-    const where: any = {};
+    const where: any = { tenantId };
 
     if (apenasAtivos) {
       where.ativo = true;
@@ -85,8 +86,10 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
 
 router.get('/:id', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const profissional = await prisma.profissional.findUnique({
-      where: { id: req.params.id },
+    const tenantId = getTenantId(req);
+
+    const profissional = await prisma.profissional.findFirst({
+      where: { id: req.params.id, tenantId },
       include: {
         _count: {
           select: { agendamentos: true },
@@ -108,9 +111,11 @@ router.get('/:id', verifyToken, async (req: Request, res: Response, next: NextFu
 router.post('/', verifyToken, requireSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = createProfissionalSchema.parse(req.body);
+    const tenantId = getTenantId(req);
 
     const profissional = await prisma.profissional.create({
       data: {
+        tenantId,
         nome: data.nome,
         especialidades: data.especialidades,
         diasTrabalho: data.diasTrabalho,
@@ -128,9 +133,10 @@ router.post('/', verifyToken, requireSuperAdmin, async (req: Request, res: Respo
 router.put('/:id', verifyToken, requireSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = updateProfissionalSchema.parse(req.body);
+    const tenantId = getTenantId(req);
 
-    const profissional = await prisma.profissional.findUnique({
-      where: { id: req.params.id },
+    const profissional = await prisma.profissional.findFirst({
+      where: { id: req.params.id, tenantId },
     });
 
     if (!profissional) {
@@ -151,8 +157,10 @@ router.put('/:id', verifyToken, requireSuperAdmin, async (req: Request, res: Res
 
 router.patch('/:id/ativo', verifyToken, requireSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const profissional = await prisma.profissional.findUnique({
-      where: { id: req.params.id },
+    const tenantId = getTenantId(req);
+
+    const profissional = await prisma.profissional.findFirst({
+      where: { id: req.params.id, tenantId },
     });
 
     if (!profissional) {
@@ -175,8 +183,10 @@ router.patch('/:id/ativo', verifyToken, requireSuperAdmin, async (req: Request, 
 
 router.delete('/:id', verifyToken, requireSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const profissional = await prisma.profissional.findUnique({
-      where: { id: req.params.id },
+    const tenantId = getTenantId(req);
+
+    const profissional = await prisma.profissional.findFirst({
+      where: { id: req.params.id, tenantId },
     });
 
     if (!profissional) {
@@ -186,6 +196,7 @@ router.delete('/:id', verifyToken, requireSuperAdmin, async (req: Request, res: 
 
     const agendamentosFuturos = await prisma.agendamento.findFirst({
       where: {
+        tenantId,
         profissionalId: req.params.id,
         dataHora: { gte: new Date() },
         status: { in: ['PENDENTE', 'CONFIRMADO'] },
@@ -214,9 +225,10 @@ router.get('/:id/agendamentos', verifyToken, async (req: Request, res: Response,
   try {
     const { id } = req.params;
     const { dataInicio, dataFim, status } = req.query;
+    const tenantId = getTenantId(req);
 
-    const profissional = await prisma.profissional.findUnique({
-      where: { id },
+    const profissional = await prisma.profissional.findFirst({
+      where: { id, tenantId },
     });
 
     if (!profissional) {
@@ -228,6 +240,7 @@ router.get('/:id/agendamentos', verifyToken, async (req: Request, res: Response,
     const fim = dataFim ? endOfDay(parseISO(dataFim as string)) : endOfDay(new Date());
 
     const where: any = {
+      tenantId,
       profissionalId: id,
       dataHora: { gte: inicio, lte: fim },
     };
@@ -262,14 +275,15 @@ router.get('/:id/horarios', verifyToken, async (req: Request, res: Response, nex
   try {
     const { id } = req.params;
     const { data } = req.query;
+    const tenantId = getTenantId(req);
 
     if (!data) {
       res.status(400).json({ erro: 'Parâmetro data é obrigatório (YYYY-MM-DD)' });
       return;
     }
 
-    const profissional = await prisma.profissional.findUnique({
-      where: { id },
+    const profissional = await prisma.profissional.findFirst({
+      where: { id, tenantId },
     });
 
     if (!profissional) {
@@ -289,8 +303,8 @@ router.get('/:id/horarios', verifyToken, async (req: Request, res: Response, nex
     let duracaoMinutos = 60;
 
     if (servicoId) {
-      const servico = await prisma.servico.findUnique({
-        where: { id: servicoId },
+      const servico = await prisma.servico.findFirst({
+        where: { id: servicoId, tenantId },
       });
       if (servico) {
         duracaoMinutos = servico.duracaoMinutos;
@@ -299,6 +313,7 @@ router.get('/:id/horarios', verifyToken, async (req: Request, res: Response, nex
 
     const agendamentos = await prisma.agendamento.findMany({
       where: {
+        tenantId,
         profissionalId: id,
         dataHora: {
           gte: startOfDay(dataRef),
@@ -316,6 +331,7 @@ router.get('/:id/horarios', verifyToken, async (req: Request, res: Response, nex
 
     const bloqueios = await prisma.bloqueioAgenda.findMany({
       where: {
+        tenantId,
         profissionalId: id,
         data: {
           gte: startOfDay(dataRef),
@@ -372,9 +388,10 @@ router.post('/:id/bloqueios', verifyToken, requireSuperAdmin, async (req: Reques
   try {
     const { id } = req.params;
     const { data, motivo } = bloqueioSchema.parse(req.body);
+    const tenantId = getTenantId(req);
 
-    const profissional = await prisma.profissional.findUnique({
-      where: { id },
+    const profissional = await prisma.profissional.findFirst({
+      where: { id, tenantId },
     });
 
     if (!profissional) {
@@ -384,6 +401,7 @@ router.post('/:id/bloqueios', verifyToken, requireSuperAdmin, async (req: Reques
 
     const bloqueio = await prisma.bloqueioAgenda.create({
       data: {
+        tenantId,
         profissionalId: id,
         data: new Date(data),
         motivo,

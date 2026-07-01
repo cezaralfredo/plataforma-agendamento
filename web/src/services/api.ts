@@ -12,6 +12,12 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  const tenantSlug = localStorage.getItem('tenantSlug');
+  if (tenantSlug) {
+    config.headers['x-tenant-id'] = tenantSlug;
+  }
+
   return config;
 });
 
@@ -24,6 +30,7 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
+      localStorage.removeItem('tenantSlug');
       window.location.href = '/login';
     }
     return Promise.reject(error);

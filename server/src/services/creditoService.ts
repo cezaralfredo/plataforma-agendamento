@@ -3,7 +3,7 @@ import { config } from '../config';
 import { Credito } from '@prisma/client';
 
 export class CreditoService {
-  async adicionarCredito(clienteId: string, valor: number, origem: string): Promise<Credito> {
+  async adicionarCredito(clienteId: string, valor: number, origem: string, tenantId: string): Promise<Credito> {
     if (valor <= 0) {
       throw new Error('Valor do crédito deve ser positivo');
     }
@@ -12,6 +12,7 @@ export class CreditoService {
       const credito = await prisma.$transaction(async (tx) => {
         const novoCredito = await tx.credito.create({
           data: {
+            tenantId,
             clienteId,
             valor,
             origem,

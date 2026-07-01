@@ -1,4 +1,5 @@
 import { WhatsAppService } from '../bot/services/whatsappService';
+import { config } from '../config';
 
 interface DadosConfirmacao {
   servicoNome: string;
@@ -31,8 +32,15 @@ interface DadosCancelamento {
 export class NotificacaoService {
   private whatsapp: WhatsAppService;
 
-  constructor() {
-    this.whatsapp = new WhatsAppService();
+  constructor(
+    evolutionApiKey?: string,
+    evolutionInstanceName?: string,
+  ) {
+    this.whatsapp = new WhatsAppService(
+      config.evolution.apiUrl,
+      evolutionApiKey || config.evolution.apiKey,
+      evolutionInstanceName || config.evolution.instanceName,
+    );
   }
 
   async enviarConfirmacao(clienteTelefone: string, dados: DadosConfirmacao): Promise<void> {

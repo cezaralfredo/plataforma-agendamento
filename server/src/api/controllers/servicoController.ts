@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import prisma from '../../services/prisma';
-import { verifyToken, requireSuperAdmin } from '../middleware/auth';
+import { getTenantId, verifyToken, requireSuperAdmin } from '../middleware/auth';
 
 const router = Router();
 
@@ -24,8 +24,9 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
   try {
     const { categoria } = req.query;
     const apenasAtivos = req.query.ativos !== 'false';
+    const tenantId = getTenantId(req);
 
-    const where: any = {};
+    const where: any = { tenantId };
 
     if (apenasAtivos) {
       where.ativo = true;
@@ -49,14 +50,15 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
 router.get('/:id', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = parseInt(req.params.id);
+    const tenantId = getTenantId(req);
 
     if (isNaN(id)) {
       res.status(400).json({ erro: 'ID inválido' });
       return;
     }
 
-    const servico = await prisma.servico.findUnique({
-      where: { id },
+    const servico = await prisma.servico.findFirst({
+      where: { id, tenantId },
     });
 
     if (!servico) {
@@ -73,9 +75,10 @@ router.get('/:id', verifyToken, async (req: Request, res: Response, next: NextFu
 router.post('/', verifyToken, requireSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = createServicoSchema.parse(req.body);
+    const tenantId = getTenantId(req);
 
     const servico = await prisma.servico.create({
-      data,
+      data: { ...data, tenantId },
     });
 
     res.status(201).json(servico);
@@ -87,6 +90,7 @@ router.post('/', verifyToken, requireSuperAdmin, async (req: Request, res: Respo
 router.put('/:id', verifyToken, requireSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = parseInt(req.params.id);
+    const tenantId = getTenantId(req);
 
     if (isNaN(id)) {
       res.status(400).json({ erro: 'ID inválido' });
@@ -95,8 +99,8 @@ router.put('/:id', verifyToken, requireSuperAdmin, async (req: Request, res: Res
 
     const data = updateServicoSchema.parse(req.body);
 
-    const servico = await prisma.servico.findUnique({
-      where: { id },
+    const servico = await prisma.servico.findFirst({
+      where: { id, tenantId },
     });
 
     if (!servico) {
@@ -118,6 +122,7 @@ router.put('/:id', verifyToken, requireSuperAdmin, async (req: Request, res: Res
 router.patch('/:id/ativo', verifyToken, requireSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = parseInt(req.params.id);
+    const tenantId = getTenantId(req);
 
     if (isNaN(id)) {
       res.status(400).json({ erro: 'ID inválido' });
@@ -126,7 +131,7 @@ router.patch('/:id/ativo', verifyToken, requireSuperAdmin, async (req: Request, 
 
     const { ativo } = z.object({ ativo: z.boolean() }).parse(req.body);
 
-    const servico = await prisma.servico.findUnique({ where: { id } });
+    const servico = await prisma.servico.findFirst({ where: { id, tenantId } });
 
     if (!servico) {
       res.status(404).json({ erro: 'Serviço não encontrado' });
@@ -147,14 +152,15 @@ router.patch('/:id/ativo', verifyToken, requireSuperAdmin, async (req: Request, 
 router.delete('/:id', verifyToken, requireSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = parseInt(req.params.id);
+    const tenantId = getTenantId(req);
 
     if (isNaN(id)) {
       res.status(400).json({ erro: 'ID inválido' });
       return;
     }
 
-    const servico = await prisma.servico.findUnique({
-      where: { id },
+    const servico = await prisma.servico.findFirst({
+      where: { id, tenantId },
     });
 
     if (!servico) {

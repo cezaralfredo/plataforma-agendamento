@@ -6,10 +6,10 @@ export class WhatsAppService {
   private apiKey: string;
   private instance: string;
 
-  constructor() {
-    this.baseUrl = `${config.evolution.apiUrl}`;
-    this.apiKey = config.evolution.apiKey;
-    this.instance = config.evolution.instanceName;
+  constructor(evolutionApiUrl?: string, evolutionApiKey?: string, instanceName?: string) {
+    this.baseUrl = evolutionApiUrl || `${config.evolution.apiUrl}`;
+    this.apiKey = evolutionApiKey || config.evolution.apiKey;
+    this.instance = instanceName || config.evolution.instanceName;
   }
 
   private headers() {
@@ -54,7 +54,7 @@ export class WhatsAppService {
         `${this.baseUrl}/message/sendButtons/${this.instance}`,
         {
           number: this.formatNumber(to),
-          title: 'Salão & Barbearia',
+          title: 'Agendamento',
           description: body,
           buttons: evolutionButtons,
         },
@@ -82,7 +82,7 @@ export class WhatsAppService {
         `${this.baseUrl}/message/sendList/${this.instance}`,
         {
           number: this.formatNumber(to),
-          title: 'Salão & Barbearia',
+          title: 'Agendamento',
           description: body,
           buttonText: 'Ver opções',
           sections: [{

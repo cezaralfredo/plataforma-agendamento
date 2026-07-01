@@ -30,7 +30,8 @@ const startServer = async () => {
     console.log(`📖 Documentação Swagger: http://localhost:${config.port}/api/docs`);
     console.log(`🔧 Ambiente: ${config.nodeEnv}`);
     console.log(`🤖 Evolution Go: ${config.evolution.apiUrl}`);
-    console.log(`📱 Instância: ${config.evolution.instanceName}`);
+    console.log(`📱 Instância padrão: ${config.evolution.instanceName}`);
+    console.log(`🏪 Modo multi-tenant ativo`);
   });
 };
 

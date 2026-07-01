@@ -55,6 +55,18 @@
       "description": "Tag Docker publicada no GHCR",
       "required": false,
       "value": "latest"
+    },
+    "DEFAULT_TENANT_SLUG": {
+      "label": "Slug do tenant padrão",
+      "description": "Slug do tenant criado automaticamente no primeiro deploy",
+      "required": false,
+      "value": "demo"
+    },
+    "DISABLE_TENANT_CREATION": {
+      "label": "Desabilitar criação de tenants",
+      "description": "Se true, novos tenants só podem ser criados via seed/API interna",
+      "required": false,
+      "value": "false"
     }
   },
   "services": {
@@ -79,12 +91,12 @@
     },
     "api": {
       "type": "docker",
-      "image": "ghcr.io/cezaralfredo/plataforma_agendamento-api:latest",
+      "image": "ghcr.io/${IMAGE_REPOSITORY}-server:${IMAGE_TAG:-latest}",
       "ports": ["3000"]
     },
     "web": {
       "type": "docker",
-      "image": "ghcr.io/cezaralfredo/plataforma_agendamento-web:latest",
+      "image": "ghcr.io/${IMAGE_REPOSITORY}-web:${IMAGE_TAG:-latest}",
       "ports": ["80"]
     }
   }

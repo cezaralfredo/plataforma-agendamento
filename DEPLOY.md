@@ -4,19 +4,19 @@
 
 O workflow `.github/workflows/docker-build.yml` publica:
 
-- `ghcr.io/<owner>/<repo>-api:<tag>`
+- `ghcr.io/<owner>/<repo>-server:<tag>`
 - `ghcr.io/<owner>/<repo>-web:<tag>`
 
-Para este repositório, o padrão esperado nos arquivos de deploy é:
+Para este repositório, o padrão é:
 
-- `ghcr.io/cezaralfredo/plataforma_agendamento-api:latest`
+- `ghcr.io/cezaralfredo/plataforma_agendamento-server:latest`
 - `ghcr.io/cezaralfredo/plataforma_agendamento-web:latest`
 
 Se o repositório tiver outro owner/nome, ajuste `IMAGE_REPOSITORY` no ambiente.
 
 ## Portainer
 
-Use `docker-compose.portainer.yml` quando não houver Traefik/roteador externo configurado no host.
+Use `docker-compose.portainer.yml` quando não houver Traefik/roteador externo.
 
 Variáveis mínimas:
 
@@ -29,7 +29,7 @@ Variáveis mínimas:
 - `IMAGE_REPOSITORY`
 - `IMAGE_TAG`
 
-Se as imagens GHCR forem privadas, configure credenciais do registry no Portainer antes de subir a stack.
+Se as imagens GHCR forem privadas, configure credenciais do registry no Portainer.
 
 ## Easypanel
 
@@ -45,7 +45,17 @@ Variáveis mínimas:
 - `IMAGE_REPOSITORY`
 - `IMAGE_TAG`
 
-O compose de produção não publica portas diretamente; ele expõe os serviços para o roteador da plataforma via labels.
+O compose de produção não publica portas diretamente; expõe os serviços via labels do Traefik.
+
+## Multi-tenancy
+
+A aplicação roda em modo multi-tenant. Cada tenant usa um slug único (ex: `meusalao`).
+
+Criacao de tenants:
+- **Via API:** `POST /api/tenants` (requer token admin)
+- **Seed inicial:** o slug padrao é definido em `DEFAULT_TENANT_SLUG`
+
+Ao criar um tenant, copie o `instanceId` e use-o no Evolution para conectar o WhatsApp daquele estabelecimento.
 
 ## Healthchecks
 

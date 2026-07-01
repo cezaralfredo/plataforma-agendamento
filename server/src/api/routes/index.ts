@@ -4,6 +4,7 @@ import swaggerUi from 'swagger-ui-express';
 import { config } from '../../config';
 
 import authController from '../controllers/authController';
+import tenantController from '../controllers/tenantController';
 import clienteController from '../controllers/clienteController';
 import profissionalController from '../controllers/profissionalController';
 import servicoController from '../controllers/servicoController';
@@ -44,6 +45,7 @@ const swaggerSpec = swaggerJsdoc({
 router.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 router.use('/auth', authController);
+router.use('/tenants', tenantController);
 router.use('/clientes', clienteController);
 router.use('/profissionais', profissionalController);
 router.use('/servicos', servicoController);

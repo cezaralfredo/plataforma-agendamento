@@ -8,8 +8,6 @@ interface LembreteJobData {
   type: '24h' | '1h';
 }
 
-const notificacaoService = new NotificacaoService();
-
 const lembreteQueue = new Queue<LembreteJobData>('lembretes', config.redis.url, {
   defaultJobOptions: {
     removeOnComplete: true,
@@ -56,6 +54,7 @@ async function processarLembretes24h(agora: Date): Promise<void> {
       cliente: { select: { nome: true, telefone: true } },
       profissional: { select: { nome: true } },
       servico: { select: { nome: true } },
+      tenant: { select: { evolutionApiKey: true, evolutionInstanceName: true } },
     },
   });
 
@@ -63,6 +62,11 @@ async function processarLembretes24h(agora: Date): Promise<void> {
     try {
       const dataFormatada = format(agendamento.dataHora, "dd/MM/yyyy");
       const horarioFormatado = format(agendamento.dataHora, "HH:mm");
+
+      const notificacaoService = new NotificacaoService(
+        agendamento.tenant.evolutionApiKey || undefined,
+        agendamento.tenant.evolutionInstanceName || undefined,
+      );
 
       await notificacaoService.enviarLembrete24h(agendamento.cliente.telefone, {
         servicoNome: agendamento.servico.nome,
@@ -96,18 +100,24 @@ async function processarLembretes1h(inicioProximaHora: Date): Promise<void> {
     include: {
       cliente: { select: { nome: true, telefone: true } },
       servico: { select: { nome: true } },
+      tenant: { select: { evolutionApiKey: true, evolutionInstanceName: true } },
     },
   });
 
-  const endereco = config.frontendUrl || 'Nosso endereço';
+  const enderecoPadrao = config.frontendUrl || 'Nosso endereço';
 
   for (const agendamento of agendamentos) {
     try {
       const dataFormatada = format(agendamento.dataHora, "dd/MM/yyyy");
       const horarioFormatado = format(agendamento.dataHora, "HH:mm");
 
+      const notificacaoService = new NotificacaoService(
+        agendamento.tenant.evolutionApiKey || undefined,
+        agendamento.tenant.evolutionInstanceName || undefined,
+      );
+
       await notificacaoService.enviarLembrete1h(agendamento.cliente.telefone, {
-        endereco,
+        endereco: enderecoPadrao,
         data: dataFormatada,
         horario: horarioFormatado,
       });

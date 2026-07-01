@@ -6,7 +6,7 @@ import {
   parseISO,
 } from 'date-fns';
 import prisma from '../../services/prisma';
-import { verifyToken } from '../middleware/auth';
+import { getTenantId, verifyToken } from '../middleware/auth';
 import { gerarCodigoUnico } from '../../utils/helpers';
 import { transformAgendamento, transformAgendamentoList } from '../../utils/transformers';
 
@@ -37,8 +37,9 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
     const skip = (page - 1) * limit;
 
     const { status, profissionalId, data, dataInicio, dataFim, search } = req.query;
+    const tenantId = getTenantId(req);
 
-    const where: any = {};
+    const where: any = { tenantId };
 
     if (status) {
       where.status = status;
@@ -107,9 +108,11 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
 router.get('/hoje', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const hoje = new Date();
+    const tenantId = getTenantId(req);
 
     const agendamentos = await prisma.agendamento.findMany({
       where: {
+        tenantId,
         dataHora: {
           gte: startOfDay(hoje),
           lte: endOfDay(hoje),
@@ -143,8 +146,10 @@ router.get('/proximos', verifyToken, async (req: Request, res: Response, next: N
   try {
     const limit = parseInt(req.query.limit as string) || 10;
     const profissionalId = req.query.profissionalId as string;
+    const tenantId = getTenantId(req);
 
     const where: any = {
+      tenantId,
       dataHora: { gte: new Date() },
       status: { in: ['PENDENTE', 'CONFIRMADO'] },
     };
@@ -182,9 +187,10 @@ router.get('/proximos', verifyToken, async (req: Request, res: Response, next: N
 router.get('/:codigoUnico/codigo', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { codigoUnico } = req.params;
+    const tenantId = getTenantId(req);
 
-    const agendamento = await prisma.agendamento.findUnique({
-      where: { codigoUnico },
+    const agendamento = await prisma.agendamento.findFirst({
+      where: { codigoUnico, tenantId },
       include: {
         cliente: {
           select: { id: true, nome: true, telefone: true },
@@ -215,9 +221,10 @@ router.get('/:codigoUnico/codigo', verifyToken, async (req: Request, res: Respon
 router.get('/:id', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    const tenantId = getTenantId(req);
 
-    const agendamento = await prisma.agendamento.findUnique({
-      where: { id },
+    const agendamento = await prisma.agendamento.findFirst({
+      where: { id, tenantId },
       include: {
         cliente: {
           select: { id: true, nome: true, telefone: true, email: true },
@@ -248,11 +255,12 @@ router.get('/:id', verifyToken, async (req: Request, res: Response, next: NextFu
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = createAgendamentoSchema.parse(req.body);
+    const tenantId = getTenantId(req);
 
     const [cliente, profissional, servico] = await Promise.all([
-      prisma.cliente.findUnique({ where: { id: data.clienteId } }),
-      prisma.profissional.findUnique({ where: { id: data.profissionalId } }),
-      prisma.servico.findUnique({ where: { id: data.servicoId } }),
+      prisma.cliente.findFirst({ where: { id: data.clienteId, tenantId } }),
+      prisma.profissional.findFirst({ where: { id: data.profissionalId, tenantId } }),
+      prisma.servico.findFirst({ where: { id: data.servicoId, tenantId } }),
     ]);
 
     if (!cliente) {
@@ -308,6 +316,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 
     const conflitos = await prisma.agendamento.findMany({
       where: {
+        tenantId,
         profissionalId: data.profissionalId,
         status: { in: ['PENDENTE', 'CONFIRMADO'] },
         dataHora: {
@@ -330,6 +339,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
 
     const agendamento = await prisma.agendamento.create({
       data: {
+        tenantId,
         clienteId: data.clienteId,
         profissionalId: data.profissionalId,
         servicoId: data.servicoId,
@@ -360,9 +370,10 @@ router.post('/:id/cancelar', verifyToken, async (req: Request, res: Response, ne
   try {
     const { id } = req.params;
     const { motivo } = cancelarSchema.parse(req.body);
+    const tenantId = getTenantId(req);
 
-    const agendamento = await prisma.agendamento.findUnique({
-      where: { id },
+    const agendamento = await prisma.agendamento.findFirst({
+      where: { id, tenantId },
       include: {
         servico: true,
         cliente: true,
@@ -402,6 +413,7 @@ router.post('/:id/cancelar', verifyToken, async (req: Request, res: Response, ne
 
       await tx.credito.create({
         data: {
+          tenantId,
           clienteId: agendamento.clienteId,
           valor: valorCredito,
           origem: `Cancelamento agendamento ${agendamento.codigoUnico}${motivo ? ` - ${motivo}` : ''}`,
@@ -425,9 +437,10 @@ router.post('/:id/cancelar', verifyToken, async (req: Request, res: Response, ne
 router.post('/:id/confirmar', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    const tenantId = getTenantId(req);
 
-    const agendamento = await prisma.agendamento.findUnique({
-      where: { id },
+    const agendamento = await prisma.agendamento.findFirst({
+      where: { id, tenantId },
     });
 
     if (!agendamento) {
@@ -465,9 +478,10 @@ router.post('/:id/confirmar', verifyToken, async (req: Request, res: Response, n
 router.post('/:id/concluir', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    const tenantId = getTenantId(req);
 
-    const agendamento = await prisma.agendamento.findUnique({
-      where: { id },
+    const agendamento = await prisma.agendamento.findFirst({
+      where: { id, tenantId },
     });
 
     if (!agendamento) {

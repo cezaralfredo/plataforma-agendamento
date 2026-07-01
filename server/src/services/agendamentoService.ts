@@ -15,6 +15,7 @@ import {
 } from 'date-fns';
 
 export interface CreateAgendamentoInput {
+  tenantId: string;
   clienteId: string;
   profissionalId: string;
   servicoId: number;
@@ -118,6 +119,7 @@ export class AgendamentoService {
 
     const agendamento = await prisma.agendamento.create({
       data: {
+        tenantId: data.tenantId,
         clienteId: data.clienteId,
         profissionalId: data.profissionalId,
         servicoId: data.servicoId,
@@ -206,6 +208,7 @@ export class AgendamentoService {
       if (creditoValor > 0) {
         await tx.credito.create({
           data: {
+            tenantId: agendamento.tenantId,
             clienteId: agendamento.clienteId,
             valor: creditoValor,
             origem: `Cancelamento agendamento ${agendamento.codigoUnico}`,

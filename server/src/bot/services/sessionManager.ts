@@ -5,13 +5,11 @@ import { SessaoBot } from '../types';
 export class SessionManager {
   private readonly sessionDurationMinutes = 30;
 
-  async getSession(telefone: string): Promise<SessaoBot | null> {
-    const cliente = await prisma.cliente.findUnique({ where: { telefone } });
-    if (!cliente) return null;
-
+  async getSession(clienteId: string, tenantId: string): Promise<SessaoBot | null> {
     const session = await prisma.sessaoBot.findFirst({
       where: {
-        clienteId: cliente.id,
+        clienteId,
+        tenantId,
         expiraEm: { gt: new Date() },
       },
       orderBy: { criadoEm: 'desc' },
@@ -25,16 +23,18 @@ export class SessionManager {
     };
   }
 
-  async createSession(clienteId: string, telefone: string): Promise<SessaoBot> {
+  async createSession(clienteId: string, tenantId: string, telefone: string): Promise<SessaoBot> {
     await prisma.sessaoBot.deleteMany({
       where: {
         clienteId,
+        tenantId,
         expiraEm: { lte: new Date() },
       },
     });
 
     const session = await prisma.sessaoBot.create({
       data: {
+        tenantId,
         clienteId,
         etapa: 'SAUDACAO',
         dados: {},

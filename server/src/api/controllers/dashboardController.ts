@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, parseISO, format } from 'date-fns';
 import prisma from '../../services/prisma';
-import { verifyToken, requireSuperAdmin } from '../middleware/auth';
+import { getTenantId, verifyToken, requireSuperAdmin } from '../middleware/auth';
 import { transformAgendamentoList } from '../../utils/transformers';
 
 const router = Router();
@@ -17,6 +17,7 @@ router.get('/resumo', verifyToken, requireSuperAdmin, async (req: Request, res: 
     const fimSemana = new Date(inicioSemana);
     fimSemana.setDate(inicioSemana.getDate() + 6);
     fimSemana.setHours(23, 59, 59, 999);
+    const tenantId = getTenantId(req);
 
     const [
       agendamentosHojeCount,
@@ -27,25 +28,29 @@ router.get('/resumo', verifyToken, requireSuperAdmin, async (req: Request, res: 
     ] = await Promise.all([
       prisma.agendamento.count({
         where: {
+          tenantId,
           dataHora: { gte: inicioHoje, lte: fimHoje },
           status: { in: ['PENDENTE', 'CONFIRMADO', 'CONCLUIDO'] },
         },
       }),
       prisma.agendamento.count({
         where: {
+          tenantId,
           status: 'CONFIRMADO',
         },
       }),
       prisma.agendamento.aggregate({
         where: {
+          tenantId,
           dataHora: { gte: inicioHoje, lte: fimHoje },
           status: 'CONCLUIDO',
         },
         _sum: { valorPago: true },
       }),
-      prisma.cliente.count(),
+      prisma.cliente.count({ where: { tenantId } }),
       prisma.agendamento.findMany({
         where: {
+          tenantId,
           dataHora: { gte: inicioSemana, lte: fimSemana },
           status: 'CONCLUIDO',
         },
@@ -82,6 +87,7 @@ router.get('/resumo', verifyToken, requireSuperAdmin, async (req: Request, res: 
 router.get('/faturamento', verifyToken, requireSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { dataInicio, dataFim, periodo } = req.query;
+    const tenantId = getTenantId(req);
 
     let inicio: Date;
     let fim: Date;
@@ -109,6 +115,7 @@ router.get('/faturamento', verifyToken, requireSuperAdmin, async (req: Request, 
 
     const agendamentos = await prisma.agendamento.findMany({
       where: {
+        tenantId,
         dataHora: { gte: inicio, lte: fim },
         status: 'CONCLUIDO',
       },
@@ -172,8 +179,11 @@ router.get('/faturamento', verifyToken, requireSuperAdmin, async (req: Request, 
 
 router.get('/proximos-agendamentos', verifyToken, requireSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const tenantId = getTenantId(req);
+
     const agendamentos = await prisma.agendamento.findMany({
       where: {
+        tenantId,
         dataHora: { gte: new Date() },
         status: { in: ['PENDENTE', 'CONFIRMADO'] },
       },

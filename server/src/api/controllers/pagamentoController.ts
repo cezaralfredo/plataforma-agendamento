@@ -1,11 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import prisma from '../../services/prisma';
-import { verifyToken } from '../middleware/auth';
-import { PixService } from '../../services/pixService';
+import { getTenantId, verifyToken } from '../middleware/auth';
+import { PixService, getPixServiceForTenant } from '../../services/pixService';
 
 const router = Router();
-const pixService = new PixService();
 
 const gerarPixSchema = z.object({
   agendamentoId: z.string().uuid('ID do agendamento inválido'),
@@ -14,9 +13,10 @@ const gerarPixSchema = z.object({
 router.post('/gerar-pix', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { agendamentoId } = gerarPixSchema.parse(req.body);
+    const tenantId = getTenantId(req);
 
-    const agendamento = await prisma.agendamento.findUnique({
-      where: { id: agendamentoId },
+    const agendamento = await prisma.agendamento.findFirst({
+      where: { id: agendamentoId, tenantId },
       include: {
         pagamento: true,
         cliente: true,
@@ -42,6 +42,13 @@ router.post('/gerar-pix', verifyToken, async (req: Request, res: Response, next:
       return;
     }
 
+    const pixService = await getPixServiceForTenant(tenantId);
+
+    if (!pixService.hasValidConfig()) {
+      res.status(400).json({ erro: 'Pagamento PIX não configurado para este estabelecimento' });
+      return;
+    }
+
     const { qrCode, copiaECola, asaasPaymentId } = await pixService.gerarCobranca(
       agendamento.valorPago,
       agendamento.cliente.nome,
@@ -54,6 +61,7 @@ router.post('/gerar-pix', verifyToken, async (req: Request, res: Response, next:
     const pagamento = await prisma.pagamento.upsert({
       where: { agendamentoId },
       create: {
+        tenantId,
         agendamentoId,
         txidPix: asaasPaymentId,
         valor: agendamento.valorPago,
@@ -111,6 +119,16 @@ router.post('/webhook', async (req: Request, res: Response, next: NextFunction) 
       return;
     }
 
+    const agendamento = await prisma.agendamento.findUnique({
+      where: { id: agendamentoId },
+      select: { tenantId: true },
+    });
+
+    if (!agendamento) {
+      res.status(200).json({ mensagem: 'Agendamento nÃ£o encontrado para este pagamento' });
+      return;
+    }
+
     const existingPagamento = await prisma.pagamento.findUnique({
       where: { agendamentoId },
     });
@@ -118,6 +136,7 @@ router.post('/webhook', async (req: Request, res: Response, next: NextFunction) 
     if (!existingPagamento) {
       await prisma.pagamento.create({
         data: {
+          tenantId: agendamento.tenantId,
           agendamentoId,
           txidPix: asaasPaymentId,
           valor: payment.value || 0,
@@ -171,9 +190,10 @@ router.post('/webhook', async (req: Request, res: Response, next: NextFunction) 
 router.get('/:txid', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { txid } = req.params;
+    const tenantId = getTenantId(req);
 
-    const pagamento = await prisma.pagamento.findUnique({
-      where: { txidPix: txid },
+    const pagamento = await prisma.pagamento.findFirst({
+      where: { txidPix: txid, tenantId },
       include: {
         agendamento: {
           select: {
@@ -203,9 +223,10 @@ router.get('/:txid', verifyToken, async (req: Request, res: Response, next: Next
 router.get('/agendamento/:agendamentoId', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { agendamentoId } = req.params;
+    const tenantId = getTenantId(req);
 
-    const pagamento = await prisma.pagamento.findUnique({
-      where: { agendamentoId },
+    const pagamento = await prisma.pagamento.findFirst({
+      where: { agendamentoId, tenantId },
       include: {
         agendamento: {
           select: {

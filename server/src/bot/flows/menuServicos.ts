@@ -3,15 +3,17 @@ import { config } from '../../config';
 import { SessionManager } from '../services/sessionManager';
 import { BotResponse, SessaoBot } from '../types';
 import { adminGestao } from './adminGestao';
+import { Tenant } from '@prisma/client';
 
 const sessionManager = new SessionManager();
 
-export async function menuServicos(telefone: string, mensagem: string, session: SessaoBot): Promise<BotResponse> {
+export async function menuServicos(telefone: string, mensagem: string, session: SessaoBot, tenant: Tenant): Promise<BotResponse> {
   const msg = mensagem.trim().toLowerCase();
   const dados = (session.dados || {}) as any;
+  const tenantId = tenant.id;
 
   if (dados.adminStep) {
-    return await adminGestao(telefone, mensagem, session);
+    return await adminGestao(telefone, mensagem, session, tenant);
   }
 
   if (msg === 'voltar' || msg === '0' || msg === 'menu') {
@@ -37,18 +39,18 @@ export async function menuServicos(telefone: string, mensagem: string, session: 
     }
 
     if (msg === 'admin' || msg === '⚙️ admin') {
-      if (telefone !== config.evolution.adminNumber) {
+      if (telefone !== tenant.whatsappAdminNumber && telefone !== config.evolution.adminNumber) {
         return {
           type: 'text',
           text: 'Desculpe, apenas administradores podem acessar esta função.',
         };
       }
-      const result = await adminGestao(telefone, msg, session);
+      const result = await adminGestao(telefone, msg, session, tenant);
       return result;
     }
 
     const categorias = await prisma.servico.findMany({
-      where: { ativo: true },
+      where: { ativo: true, tenantId },
       select: { categoria: true },
       distinct: ['categoria'],
     });
@@ -62,7 +64,7 @@ export async function menuServicos(telefone: string, mensagem: string, session: 
 
     if (categorias.length === 1) {
       const servicos = await prisma.servico.findMany({
-        where: { ativo: true, categoria: categorias[0].categoria },
+        where: { ativo: true, tenantId, categoria: categorias[0].categoria },
         orderBy: { nome: 'asc' },
       });
 
@@ -108,7 +110,7 @@ export async function menuServicos(telefone: string, mensagem: string, session: 
     if (msg.startsWith('cat_')) {
       const categoria = msg.replace('cat_', '') as 'SALAO' | 'BARBEARIA';
       const servicos = await prisma.servico.findMany({
-        where: { ativo: true, categoria },
+        where: { ativo: true, tenantId, categoria },
         orderBy: { nome: 'asc' },
       });
 
@@ -140,7 +142,7 @@ export async function menuServicos(telefone: string, mensagem: string, session: 
       const servicoId = parseInt(msg.replace('serv_', ''), 10);
       const servico = await prisma.servico.findUnique({ where: { id: servicoId } });
 
-      if (!servico || !servico.ativo) {
+      if (!servico || !servico.ativo || servico.tenantId !== tenantId) {
         return { type: 'text', text: 'Serviço não encontrado. Tente novamente.' };
       }
 

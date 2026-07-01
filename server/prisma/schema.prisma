@@ -31,39 +31,85 @@ enum PerfilUsuario {
   PROFISSIONAL
 }
 
+model Tenant {
+  id           String   @id @default(uuid())
+  nome         String
+  slug         String   @unique
+  plano        String   @default("BASIC")
+  ativo        Boolean  @default(true)
+
+  asaasApiKey       String  @default("")
+  asaasApiUrl       String  @default("")
+  asaasSandbox      Boolean @default(true)
+
+  evolutionApiKey      String @default("")
+  evolutionInstanceName String @default("")
+
+  whatsappAdminNumber  String @default("")
+
+  subdominio     String?
+  customDomain   String?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  usuarios      Usuario[]
+  clientes      Cliente[]
+  profissionais Profissional[]
+  servicos      Servico[]
+  agendamentos  Agendamento[]
+  pagamentos    Pagamento[]
+  creditos      Credito[]
+  bloqueios     BloqueioAgenda[]
+  sessoes       SessaoBot[]
+  configuracoes Configuracao[]
+  logsBot       LogBot[]
+
+  @@map("tenants")
+}
+
 model Cliente {
   id           String       @id @default(uuid())
+  tenantId     String
   nome         String
-  telefone     String       @unique
+  telefone     String
   email        String?
   saldoCredito Float        @default(0)
   criadoEm     DateTime     @default(now())
   atualizadoEm DateTime     @updatedAt
 
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
   agendamentos Agendamento[]
   creditos     Credito[]
   sessoes      SessaoBot[]
 
+  @@unique([tenantId, telefone])
+  @@index([tenantId])
   @@map("clientes")
 }
 
 model Usuario {
   id           String         @id @default(uuid())
+  tenantId     String
   nome         String
-  email        String         @unique
+  email        String
   senha        String
   perfil       PerfilUsuario
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
   profissional Profissional?  @relation(fields: [profissionalId], references: [id])
   profissionalId String?      @unique
   ativo        Boolean        @default(true)
   criadoEm     DateTime       @default(now())
   atualizadoEm DateTime       @updatedAt
 
+  @@unique([tenantId, email])
+  @@index([tenantId])
   @@map("usuarios")
 }
 
 model Profissional {
   id              String   @id @default(uuid())
+  tenantId        String
   nome            String
   especialidades  String[]
   diasTrabalho    Int[]    @default([1,2,3,4,5,6])
@@ -73,15 +119,18 @@ model Profissional {
   criadoEm        DateTime @default(now())
   atualizadoEm    DateTime @updatedAt
 
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
   usuario     Usuario?
   agendamentos Agendamento[]
   bloqueios   BloqueioAgenda[]
 
+  @@index([tenantId])
   @@map("profissionais")
 }
 
 model Servico {
   id             Int             @id @default(autoincrement())
+  tenantId       String
   nome           String
   categoria      CategoriaServico
   valor          Float
@@ -90,13 +139,16 @@ model Servico {
   criadoEm       DateTime        @default(now())
   atualizadoEm   DateTime        @updatedAt
 
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
   agendamentos Agendamento[]
 
+  @@index([tenantId])
   @@map("servicos")
 }
 
 model Agendamento {
   id               String            @id @default(uuid())
+  tenantId         String
   codigoUnico      String            @unique @default(uuid())
   clienteId        String
   profissionalId   String
@@ -108,16 +160,20 @@ model Agendamento {
   criadoEm         DateTime          @default(now())
   atualizadoEm     DateTime          @updatedAt
 
-  cliente     Cliente     @relation(fields: [clienteId], references: [id])
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  cliente     Cliente      @relation(fields: [clienteId], references: [id])
   profissional Profissional @relation(fields: [profissionalId], references: [id])
-  servico     Servico     @relation(fields: [servicoId], references: [id])
+  servico     Servico      @relation(fields: [servicoId], references: [id])
   pagamento   Pagamento?
 
+  @@index([tenantId])
+  @@index([tenantId, dataHora])
   @@map("agendamentos")
 }
 
 model Pagamento {
   id            String         @id @default(uuid())
+  tenantId      String
   agendamentoId String         @unique
   txidPix       String         @unique
   valor         Float
@@ -128,38 +184,47 @@ model Pagamento {
   pagoEm        DateTime?
   expiradoEm    DateTime?
 
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
   agendamento Agendamento @relation(fields: [agendamentoId], references: [id])
 
+  @@index([tenantId])
   @@map("pagamentos")
 }
 
 model Credito {
   id        String   @id @default(uuid())
+  tenantId  String
   clienteId String
   valor     Float
   origem    String
   utilizado Boolean  @default(false)
   criadoEm  DateTime @default(now())
 
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
   cliente Cliente @relation(fields: [clienteId], references: [id])
 
+  @@index([tenantId])
   @@map("creditos")
 }
 
 model BloqueioAgenda {
   id             String   @id @default(uuid())
+  tenantId       String
   profissionalId String
   data           DateTime
   motivo         String?
   criadoEm       DateTime @default(now())
 
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
   profissional Profissional @relation(fields: [profissionalId], references: [id])
 
+  @@index([tenantId])
   @@map("bloqueios_agenda")
 }
 
 model SessaoBot {
   id          String   @id @default(uuid())
+  tenantId    String
   clienteId   String
   etapa       String
   dados       Json?
@@ -167,25 +232,36 @@ model SessaoBot {
   criadoEm    DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
   cliente Cliente @relation(fields: [clienteId], references: [id])
 
+  @@index([tenantId])
   @@map("sessoes_bot")
 }
 
 model Configuracao {
-  id    String @id @default(uuid())
-  chave String @unique
-  valor String
+  id       String @id @default(uuid())
+  tenantId String
+  chave    String
+  valor    String
 
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, chave])
+  @@index([tenantId])
   @@map("configuracoes")
 }
 
 model LogBot {
   id        String   @id @default(uuid())
+  tenantId  String
   telefone  String?
   mensagem  String
   tipo      String
   criadoEm  DateTime @default(now())
 
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
   @@map("logs_bot")
 }

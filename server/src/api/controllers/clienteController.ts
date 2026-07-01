@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import prisma from '../../services/prisma';
-import { verifyToken, requireSuperAdmin } from '../middleware/auth';
+import { getTenantId, verifyToken, requireSuperAdmin } from '../middleware/auth';
 import { transformCliente, transformClienteList } from '../../utils/transformers';
 
 const router = Router();
@@ -24,8 +24,9 @@ router.get('/', verifyToken, requireSuperAdmin, async (req: Request, res: Respon
     const limit = parseInt(req.query.limit as string) || 50;
     const skip = (page - 1) * limit;
     const search = req.query.search as string;
+    const tenantId = getTenantId(req);
 
-    const where: any = {};
+    const where: any = { tenantId };
 
     if (search) {
       where.OR = [
@@ -58,11 +59,12 @@ router.get('/', verifyToken, requireSuperAdmin, async (req: Request, res: Respon
 router.post('/', verifyToken, requireSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = createClienteSchema.parse(req.body);
+    const tenantId = getTenantId(req);
 
     const telefoneFormatado = data.telefone.replace(/\D/g, '');
 
-    const existente = await prisma.cliente.findUnique({
-      where: { telefone: telefoneFormatado },
+    const existente = await prisma.cliente.findFirst({
+      where: { tenantId, telefone: telefoneFormatado },
     });
 
     if (existente) {
@@ -72,6 +74,7 @@ router.post('/', verifyToken, requireSuperAdmin, async (req: Request, res: Respo
 
     const cliente = await prisma.cliente.create({
       data: {
+        tenantId,
         nome: data.nome,
         telefone: telefoneFormatado,
         email: data.email || undefined,
@@ -86,8 +89,10 @@ router.post('/', verifyToken, requireSuperAdmin, async (req: Request, res: Respo
 
 router.get('/:id', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const cliente = await prisma.cliente.findUnique({
-      where: { id: req.params.id },
+    const tenantId = getTenantId(req);
+
+    const cliente = await prisma.cliente.findFirst({
+      where: { id: req.params.id, tenantId },
     });
 
     if (!cliente) {
@@ -104,9 +109,10 @@ router.get('/:id', verifyToken, async (req: Request, res: Response, next: NextFu
 router.get('/telefone/:telefone', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const telefone = req.params.telefone.replace(/\D/g, '');
+    const tenantId = getTenantId(req);
 
-    const cliente = await prisma.cliente.findUnique({
-      where: { telefone },
+    const cliente = await prisma.cliente.findFirst({
+      where: { tenantId, telefone },
     });
 
     if (!cliente) {
@@ -123,9 +129,10 @@ router.get('/telefone/:telefone', verifyToken, async (req: Request, res: Respons
 router.put('/:id', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = updateClienteSchema.parse(req.body);
+    const tenantId = getTenantId(req);
 
-    const cliente = await prisma.cliente.findUnique({
-      where: { id: req.params.id },
+    const cliente = await prisma.cliente.findFirst({
+      where: { id: req.params.id, tenantId },
     });
 
     if (!cliente) {
@@ -135,8 +142,8 @@ router.put('/:id', verifyToken, async (req: Request, res: Response, next: NextFu
 
     if (data.telefone) {
       const telefoneFormatado = data.telefone.replace(/\D/g, '');
-      const existente = await prisma.cliente.findUnique({
-        where: { telefone: telefoneFormatado },
+      const existente = await prisma.cliente.findFirst({
+        where: { tenantId, telefone: telefoneFormatado },
       });
 
       if (existente && existente.id !== req.params.id) {
@@ -161,9 +168,10 @@ router.put('/:id', verifyToken, async (req: Request, res: Response, next: NextFu
 router.get('/:id/agendamentos', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    const tenantId = getTenantId(req);
 
-    const cliente = await prisma.cliente.findUnique({
-      where: { id },
+    const cliente = await prisma.cliente.findFirst({
+      where: { id, tenantId },
     });
 
     if (!cliente) {
@@ -177,7 +185,7 @@ router.get('/:id/agendamentos', verifyToken, async (req: Request, res: Response,
 
     const status = req.query.status as string;
 
-    const where: any = { clienteId: id };
+    const where: any = { tenantId, clienteId: id };
 
     if (status) {
       where.status = status;
@@ -218,9 +226,10 @@ router.get('/:id/agendamentos', verifyToken, async (req: Request, res: Response,
 router.get('/:id/creditos', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
+    const tenantId = getTenantId(req);
 
-    const cliente = await prisma.cliente.findUnique({
-      where: { id },
+    const cliente = await prisma.cliente.findFirst({
+      where: { id, tenantId },
     });
 
     if (!cliente) {
@@ -229,7 +238,7 @@ router.get('/:id/creditos', verifyToken, async (req: Request, res: Response, nex
     }
 
     const creditos = await prisma.credito.findMany({
-      where: { clienteId: id },
+      where: { tenantId, clienteId: id },
       orderBy: { criadoEm: 'desc' },
     });
 
