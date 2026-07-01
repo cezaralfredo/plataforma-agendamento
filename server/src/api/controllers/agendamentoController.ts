@@ -13,8 +13,9 @@ import { transformAgendamento, transformAgendamentoList } from '../../utils/tran
 const router = Router();
 
 const createAgendamentoSchema = z.object({
-  clienteId: z.string().uuid('ID do cliente inválido'),
-  profissionalId: z.string().uuid('ID do profissional inválido'),
+  tenantSlug: z.string().optional(),
+  clienteId: z.string().min(1, 'ID do cliente é obrigatório'),
+  profissionalId: z.string().min(1, 'ID do profissional é obrigatório'),
   servicoId: z.union([z.number().int().positive(), z.string().transform(v => parseInt(v))]),
   dataHora: z.string().refine((val) => !isNaN(Date.parse(val)), 'Data/hora inválida').optional(),
   data: z.string().optional(),
@@ -255,7 +256,17 @@ router.get('/:id', verifyToken, async (req: Request, res: Response, next: NextFu
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const data = createAgendamentoSchema.parse(req.body);
-    const tenantId = getTenantId(req);
+    let tenantId = getTenantId(req);
+
+    if (!tenantId && data.tenantSlug) {
+      const tenant = await prisma.tenant.findUnique({ where: { slug: data.tenantSlug } });
+      if (tenant?.ativo) tenantId = tenant.id;
+    }
+
+    if (!tenantId) {
+      res.status(400).json({ erro: 'Tenant não identificado. Informe o slug ou x-tenant-id.' });
+      return;
+    }
 
     const [cliente, profissional, servico] = await Promise.all([
       prisma.cliente.findFirst({ where: { id: data.clienteId, tenantId } }),

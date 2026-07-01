@@ -20,11 +20,11 @@ export default defineConfig({
     host: '0.0.0.0',
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: process.env.API_URL || 'http://api:3000',
         changeOrigin: true,
       },
       '/webhook': {
-        target: 'http://localhost:3000',
+        target: process.env.API_URL || 'http://api:3000',
         changeOrigin: true,
       },
     },

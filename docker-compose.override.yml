@@ -11,12 +11,13 @@ services:
     environment:
       NODE_ENV: development
 
+
   web:
     build:
       context: ./web
       dockerfile: Dockerfile.dev
     ports:
-      - '5173:5173'
+      - '5174:5173'
     volumes:
       - ./web/src:/app/src
     environment:
