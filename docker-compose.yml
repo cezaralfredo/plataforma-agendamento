@@ -23,7 +23,7 @@ services:
     image: redis:7-alpine
     container_name: agendamento-redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-}
+    command: redis-server
     ports:
       - '6379:6379'
     healthcheck:
@@ -137,11 +137,11 @@ services:
   web:
     build:
       context: ./web
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: agendamento-web
     restart: unless-stopped
     ports:
-      - '5173:80'
+      - '5173:5173'
     depends_on:
       api:
         condition: service_healthy
