@@ -27,6 +27,10 @@ const createTenantSchema = z.object({
   asaasSandbox: z.boolean().optional().default(true),
   evolutionApiKey: z.string().optional().default(''),
   whatsappAdminNumber: z.string().optional().default(''),
+  provedorMensageria: z.enum(['EVOLUTION', 'META', 'TELEGRAM']).optional().default('EVOLUTION'),
+  metaAccessToken: z.string().optional().default(''),
+  metaPhoneNumberId: z.string().optional().default(''),
+  telegramBotToken: z.string().optional().default(''),
 });
 
 const updateTenantSchema = z.object({
@@ -38,6 +42,10 @@ const updateTenantSchema = z.object({
   asaasSandbox: z.boolean().optional(),
   evolutionApiKey: z.string().optional(),
   whatsappAdminNumber: z.string().optional(),
+  provedorMensageria: z.enum(['EVOLUTION', 'META', 'TELEGRAM']).optional(),
+  metaAccessToken: z.string().optional(),
+  metaPhoneNumberId: z.string().optional(),
+  telegramBotToken: z.string().optional(),
   subdominio: z.string().optional(),
   customDomain: z.string().optional(),
 });
@@ -208,6 +216,10 @@ router.get('/me', verifyToken, async (req: Request, res: Response, next: NextFun
         ativo: true,
         asaasSandbox: true,
         whatsappAdminNumber: true,
+        provedorMensageria: true,
+        metaAccessToken: true,
+        metaPhoneNumberId: true,
+        telegramBotToken: true,
         subdominio: true,
         customDomain: true,
         criadoEm: true,
@@ -242,6 +254,7 @@ router.get('/:id', verifyToken, async (req: Request, res: Response, next: NextFu
         ativo: true,
         asaasSandbox: true,
         whatsappAdminNumber: true,
+        provedorMensageria: true,
         subdominio: true,
         customDomain: true,
         criadoEm: true,

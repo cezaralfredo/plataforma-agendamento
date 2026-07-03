@@ -31,6 +31,12 @@ enum PerfilUsuario {
   PROFISSIONAL
 }
 
+enum ProvedorMensageria {
+  EVOLUTION
+  META
+  TELEGRAM
+}
+
 model Tenant {
   id           String   @id @default(uuid())
   nome         String
@@ -42,8 +48,17 @@ model Tenant {
   asaasApiUrl       String  @default("")
   asaasSandbox      Boolean @default(true)
 
-  evolutionApiKey      String @default("")
-  evolutionInstanceName String @default("")
+  evolutionApiKey        String @default("")
+  evolutionInstanceName  String @default("")
+
+  provedorMensageria     ProvedorMensageria @default(EVOLUTION)
+
+  metaAccessToken       String @default("")
+  metaPhoneNumberId     String @default("")
+  metaBusinessAccountId String @default("")
+  metaVerifyToken       String @default("")
+
+  telegramBotToken      String @default("")
 
   whatsappAdminNumber  String @default("")
 

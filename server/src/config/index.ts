@@ -43,6 +43,21 @@ export const config = {
     adminNumber: process.env.WHATSAPP_ADMIN_NUMBER || '',
   },
 
+  meta: {
+    accessToken: process.env.META_ACCESS_TOKEN || '',
+    phoneNumberId: process.env.META_PHONE_NUMBER_ID || '',
+    businessAccountId: process.env.META_BUSINESS_ACCOUNT_ID || '',
+    verifyToken: process.env.META_VERIFY_TOKEN || '',
+  },
+
+  telegram: {
+    botToken: process.env.TELEGRAM_BOT_TOKEN || '',
+  },
+
+  mensageria: {
+    provedorPadrao: (process.env.PROVEDOR_MENSAGERIA_PADRAO || 'EVOLUTION') as 'EVOLUTION' | 'META' | 'TELEGRAM',
+  },
+
   asaas: {
     apiKey: process.env.ASAAS_API_KEY || '',
     apiUrl: process.env.ASAAS_API_URL || '',

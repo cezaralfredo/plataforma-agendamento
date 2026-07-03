@@ -6,7 +6,11 @@ import rateLimit from 'express-rate-limit';
 import { config } from './config';
 import { errorHandler } from './api/middleware/errorHandler';
 import apiRouter from './api/routes';
-import { processarMensagem } from './bot';
+import {
+  processarMensagemEvolution,
+  processarMensagemMeta,
+  processarMensagemTelegram,
+} from './bot';
 
 const app = express();
 
@@ -74,8 +78,14 @@ app.use('/webhook', webhookLimiter);
 
 app.use('/api', apiRouter);
 
-app.use('/webhook/whatsapp', processarMensagem);
-app.use('/webhook/whatsapp/:tenantSlug', processarMensagem);
+app.use('/webhook/evolution', processarMensagemEvolution);
+app.use('/webhook/evolution/:tenantSlug', processarMensagemEvolution);
+
+app.use('/webhook/meta', processarMensagemMeta);
+app.use('/webhook/meta/:tenantSlug', processarMensagemMeta);
+
+app.use('/webhook/telegram', processarMensagemTelegram);
+app.use('/webhook/telegram/:tenantSlug', processarMensagemTelegram);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
