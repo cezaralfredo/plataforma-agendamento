@@ -8,23 +8,29 @@ import { getTenantId, verifyToken } from '../middleware/auth';
 
 const router = Router();
 
+const senhaSchema = z.string()
+  .min(8, 'Senha deve ter no mínimo 8 caracteres')
+  .regex(/[A-Z]/, 'Senha deve conter pelo menos uma letra maiúscula')
+  .regex(/[a-z]/, 'Senha deve conter pelo menos uma letra minúscula')
+  .regex(/[0-9]/, 'Senha deve conter pelo menos um número');
+
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
-  senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  senha: z.string().min(1, 'Senha é obrigatória'),
   tenantSlug: z.string().optional(),
 });
 
 const registerSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   email: z.string().email('Email inválido'),
-  senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  senha: senhaSchema,
   perfil: z.enum(['SUPER_ADMIN', 'PROFISSIONAL']),
   profissionalId: z.string().uuid().optional(),
 });
 
 const changePasswordSchema = z.object({
   senhaAtual: z.string().min(1, 'Senha atual é obrigatória'),
-  novaSenha: z.string().min(6, 'Nova senha deve ter no mínimo 6 caracteres'),
+  novaSenha: senhaSchema,
 });
 
 router.post('/login', async (req: Request, res: Response, next: NextFunction) => {

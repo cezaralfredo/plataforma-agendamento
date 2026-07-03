@@ -7,6 +7,12 @@ import { config } from '../../config';
 import { getTenantId, verifyToken } from '../middleware/auth';
 import { EvolutionInitializer } from '../../bot/services/evolutionInitializer';
 
+const senhaSchema = z.string()
+  .min(8, 'Senha deve ter no mínimo 8 caracteres')
+  .regex(/[A-Z]/, 'Senha deve conter pelo menos uma letra maiúscula')
+  .regex(/[a-z]/, 'Senha deve conter pelo menos uma letra minúscula')
+  .regex(/[0-9]/, 'Senha deve conter pelo menos um número');
+
 const router = Router();
 
 const createTenantSchema = z.object({
@@ -15,7 +21,7 @@ const createTenantSchema = z.object({
     .regex(/^[a-z0-9-]+$/, 'Slug deve conter apenas letras minúsculas, números e hífens'),
   adminNome: z.string().min(2, 'Nome do admin deve ter no mínimo 2 caracteres'),
   adminEmail: z.string().email('Email inválido'),
-  adminSenha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  adminSenha: senhaSchema,
   asaasApiKey: z.string().optional().default(''),
   asaasApiUrl: z.string().optional().default(''),
   asaasSandbox: z.boolean().optional().default(true),
@@ -234,7 +240,6 @@ router.get('/:id', verifyToken, async (req: Request, res: Response, next: NextFu
         slug: true,
         plano: true,
         ativo: true,
-        asaasApiKey: false,
         asaasSandbox: true,
         whatsappAdminNumber: true,
         subdominio: true,

@@ -37,10 +37,9 @@ export async function processarMensagem(req: Request, res: Response): Promise<vo
   }
 
   const apiKeyHeader = req.headers['apikey'] as string;
-  if (apiKeyHeader) {
-    const validKeys = [config.evolution.apiKey];
-    if (!validKeys.includes(apiKeyHeader)) {
-      console.warn('[Bot] API key inválida no webhook');
+  if (config.evolution.apiKey) {
+    if (!apiKeyHeader || apiKeyHeader !== config.evolution.apiKey) {
+      console.warn('[Bot] API key ausente ou inválida no webhook');
       res.sendStatus(200);
       return;
     }

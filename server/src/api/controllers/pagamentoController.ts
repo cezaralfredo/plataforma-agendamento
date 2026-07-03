@@ -93,10 +93,14 @@ router.post('/gerar-pix', verifyToken, async (req: Request, res: Response, next:
 
 router.post('/webhook', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const webhookToken = config.asaas.webhookToken;
-    if (webhookToken) {
+    if (config.nodeEnv === 'production' && !config.asaas.webhookToken) {
+      res.status(500).json({ erro: 'ASAAS_WEBHOOK_TOKEN não configurado em produção' });
+      return;
+    }
+
+    if (config.asaas.webhookToken) {
       const token = req.headers['x-webhook-token'] as string;
-      if (!token || token !== webhookToken) {
+      if (!token || token !== config.asaas.webhookToken) {
         res.status(401).json({ erro: 'Token de webhook inválido' });
         return;
       }

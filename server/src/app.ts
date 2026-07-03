@@ -37,6 +37,10 @@ app.use(express.urlencoded({ extended: true }));
 
 if (config.nodeEnv === 'development') {
   app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined', {
+    skip: (req) => req.path === '/health',
+  }));
 }
 
 const apiLimiter = rateLimit({

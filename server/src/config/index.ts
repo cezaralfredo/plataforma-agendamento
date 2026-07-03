@@ -22,11 +22,16 @@ export const config = {
       if (envSecret && envSecret !== 'default-secret-change-me' && envSecret !== 'jwt-secret-plataforma-agendamento-2024') {
         return envSecret;
       }
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('JWT_SECRET deve ser uma string segura e única em produção');
+      if (process.env.NODE_ENV === 'production' && !envSecret) {
+        throw new Error('JWT_SECRET deve ser configurada em produção');
       }
-      console.warn('[WARN] JWT_SECRET fraco em uso. Configure uma chave segura via variável de ambiente.');
-      return envSecret || crypto.randomBytes(32).toString('hex');
+      if (!envSecret || envSecret === 'default-secret-change-me' || envSecret === 'jwt-secret-plataforma-agendamento-2024') {
+        console.warn('[WARN] JWT_SECRET fraco em uso. Configure uma chave segura via variável de ambiente.');
+        if (!envSecret) {
+          return crypto.randomBytes(32).toString('hex');
+        }
+      }
+      return envSecret;
     })(),
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
