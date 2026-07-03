@@ -118,6 +118,16 @@ export function parseEvolutionMensagem(body: any): { from: string; message: stri
   }
 }
 
+export function sanitizeQueryParams(params: Record<string, any>, allowedFields: string[]): Record<string, any> {
+  const sanitized: Record<string, any> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (allowedFields.includes(key) && typeof value === 'string') {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
+
 export function formatarDataHora(data: Date): string {
   return format(data, "dd/MM/yyyy 'às' HH:mm");
 }

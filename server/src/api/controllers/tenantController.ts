@@ -38,6 +38,19 @@ const updateTenantSchema = z.object({
 
 router.post('/signup', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (config.signup.disabled) {
+      res.status(403).json({ erro: 'Criação de novas contas desativada' });
+      return;
+    }
+
+    if (config.signup.secretKey) {
+      const providedKey = req.headers['x-signup-key'] as string;
+      if (!providedKey || providedKey !== config.signup.secretKey) {
+        res.status(403).json({ erro: 'Chave de registro inválida' });
+        return;
+      }
+    }
+
     const data = createTenantSchema.parse(req.body);
 
     const slugExistente = await prisma.tenant.findUnique({

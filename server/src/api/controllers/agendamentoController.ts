@@ -7,7 +7,7 @@ import {
 } from 'date-fns';
 import prisma from '../../services/prisma';
 import { getTenantId, verifyToken } from '../middleware/auth';
-import { gerarCodigoUnico } from '../../utils/helpers';
+import { gerarCodigoUnico, sanitizeQueryParams } from '../../utils/helpers';
 import { transformAgendamento, transformAgendamentoList } from '../../utils/transformers';
 
 const router = Router();

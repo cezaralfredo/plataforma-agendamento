@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { config } from '../../config';
@@ -42,7 +43,23 @@ const swaggerSpec = swaggerJsdoc({
   apis: [],
 });
 
-router.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+router.use('/docs', (req: any, res: any, next: any) => {
+  if (config.nodeEnv === 'production') {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).json({ erro: 'Documentação protegida em produção' });
+      return;
+    }
+    try {
+      const decoded = jwt.verify(authHeader.split(' ')[1], config.jwt.secret);
+      req.usuario = decoded;
+    } catch {
+      res.status(401).json({ erro: 'Token inválido' });
+      return;
+    }
+  }
+  next();
+}, swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 router.use('/auth', authController);
 router.use('/tenants', tenantController);

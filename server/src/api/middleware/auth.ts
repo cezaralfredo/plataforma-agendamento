@@ -19,11 +19,22 @@ declare global {
   }
 }
 
+export function isValidUUID(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
 export function getTenantId(req: Request): string {
+  const tokenTenantId = req.usuario?.tenantId || req.tenantId;
+  if (tokenTenantId) return tokenTenantId;
+
   const headerTenant = req.headers['x-tenant-id'];
   const headerTenantId = Array.isArray(headerTenant) ? headerTenant[0] : headerTenant;
 
-  return req.usuario?.tenantId || req.tenantId || headerTenantId || '';
+  if (headerTenantId && isValidUUID(headerTenantId)) {
+    return headerTenantId;
+  }
+
+  return '';
 }
 
 export function getTenantIdOrFail(req: Request, res: Response): string {

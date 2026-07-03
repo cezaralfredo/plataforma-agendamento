@@ -36,6 +36,16 @@ export async function processarMensagem(req: Request, res: Response): Promise<vo
     return;
   }
 
+  const apiKeyHeader = req.headers['apikey'] as string;
+  if (apiKeyHeader) {
+    const validKeys = [config.evolution.apiKey];
+    if (!validKeys.includes(apiKeyHeader)) {
+      console.warn('[Bot] API key inválida no webhook');
+      res.sendStatus(200);
+      return;
+    }
+  }
+
   const tenantSlug = req.params.tenantSlug || 'default';
 
   const tenant = await getTenantFromSlug(tenantSlug);

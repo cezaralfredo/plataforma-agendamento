@@ -1,8 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
+import crypto from 'crypto';
 import prisma from '../../services/prisma';
 import { getTenantId, verifyToken } from '../middleware/auth';
 import { PixService, getPixServiceForTenant } from '../../services/pixService';
+import { config } from '../../config';
 
 const router = Router();
 
@@ -91,6 +93,15 @@ router.post('/gerar-pix', verifyToken, async (req: Request, res: Response, next:
 
 router.post('/webhook', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const webhookToken = config.asaas.webhookToken;
+    if (webhookToken) {
+      const token = req.headers['x-webhook-token'] as string;
+      if (!token || token !== webhookToken) {
+        res.status(401).json({ erro: 'Token de webhook inválido' });
+        return;
+      }
+    }
+
     const body = req.body;
     const event = body?.event;
     const payment = body?.payment;
@@ -100,10 +111,12 @@ router.post('/webhook', async (req: Request, res: Response, next: NextFunction) 
       return;
     }
 
-    const asaasPaymentId = payment.id;
-    const externalReference = payment.externalReference;
+    const asaasPaymentId = String(payment.id).replace(/[^a-zA-Z0-9_-]/g, '');
+    const externalReference = payment.externalReference
+      ? String(payment.externalReference).replace(/[^a-zA-Z0-9_-]/g, '')
+      : '';
 
-    let agendamentoId = externalReference || '';
+    let agendamentoId = externalReference;
 
     if (!agendamentoId) {
       const pagamento = await prisma.pagamento.findUnique({
@@ -125,7 +138,7 @@ router.post('/webhook', async (req: Request, res: Response, next: NextFunction) 
     });
 
     if (!agendamento) {
-      res.status(200).json({ mensagem: 'Agendamento nÃ£o encontrado para este pagamento' });
+      res.status(200).json({ mensagem: 'Agendamento não encontrado para este pagamento' });
       return;
     }
 
