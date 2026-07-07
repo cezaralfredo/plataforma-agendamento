@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Settings, Save, Clock, AlertTriangle, CreditCard, MessageSquare, Loader2 } from 'lucide-react';
+import { Settings, Save, Clock, AlertTriangle, CreditCard, MessageSquare, Lock, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -31,6 +31,10 @@ export default function ConfiguracoesPage() {
   const { isSuperAdmin } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [senhaAtual, setSenhaAtual] = useState('');
+  const [novaSenha, setNovaSenha] = useState('');
+  const [confirmarSenha, setConfirmarSenha] = useState('');
+  const [savingSenha, setSavingSenha] = useState(false);
 
   const {
     register,
@@ -86,12 +90,82 @@ export default function ConfiguracoesPage() {
     }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (novaSenha !== confirmarSenha) {
+      toast.error('As senhas não conferem');
+      return;
+    }
+    if (novaSenha.length < 6) {
+      toast.error('A nova senha deve ter no mínimo 6 caracteres');
+      return;
+    }
+    setSavingSenha(true);
+    try {
+      await api.put('/auth/change-password', { senhaAtual, novaSenha });
+      toast.success('Senha alterada com sucesso!');
+      setSenhaAtual('');
+      setNovaSenha('');
+      setConfirmarSenha('');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.erro || err?.response?.data?.error || 'Erro ao alterar senha');
+    } finally {
+      setSavingSenha(false);
+    }
+  };
+
   if (!isSuperAdmin) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        <Settings size={48} className="mx-auto mb-3 text-gray-300" />
-        <p className="text-lg font-medium">Acesso restrito</p>
-        <p className="text-sm">Apenas administradores podem acessar configurações.</p>
+      <div className="max-w-md mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-800">Configurações</h1>
+        </div>
+        <div className="card">
+          <div className="flex items-center gap-2 mb-6">
+            <Lock size={20} className="text-primary-600" />
+            <h2 className="text-lg font-semibold text-gray-800">Alterar Senha</h2>
+          </div>
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Senha Atual</label>
+              <input
+                type="password"
+                value={senhaAtual}
+                onChange={e => setSenhaAtual(e.target.value)}
+                required
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
+              <input
+                type="password"
+                value={novaSenha}
+                onChange={e => setNovaSenha(e.target.value)}
+                required
+                minLength={6}
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar Nova Senha</label>
+              <input
+                type="password"
+                value={confirmarSenha}
+                onChange={e => setConfirmarSenha(e.target.value)}
+                required
+                minLength={6}
+                className="input-field"
+              />
+            </div>
+            <div className="flex justify-end pt-2">
+              <button type="submit" className="btn-primary flex items-center gap-2" disabled={savingSenha}>
+                {savingSenha ? <Loader2 size={18} className="animate-spin" /> : <Lock size={18} />}
+                {savingSenha ? 'Alterando...' : 'Alterar Senha'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     );
   }
@@ -265,6 +339,55 @@ export default function ConfiguracoesPage() {
           </div>
         </div>
       </form>
+
+      <div className="card">
+        <div className="flex items-center gap-2 mb-6">
+          <Lock size={20} className="text-primary-600" />
+          <h2 className="text-lg font-semibold text-gray-800">Alterar Senha</h2>
+        </div>
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Senha Atual</label>
+              <input
+                type="password"
+                value={senhaAtual}
+                onChange={e => setSenhaAtual(e.target.value)}
+                required
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
+              <input
+                type="password"
+                value={novaSenha}
+                onChange={e => setNovaSenha(e.target.value)}
+                required
+                minLength={6}
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar Nova Senha</label>
+              <input
+                type="password"
+                value={confirmarSenha}
+                onChange={e => setConfirmarSenha(e.target.value)}
+                required
+                minLength={6}
+                className="input-field"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end pt-2">
+            <button type="submit" className="btn-primary flex items-center gap-2" disabled={savingSenha}>
+              {savingSenha ? <Loader2 size={18} className="animate-spin" /> : <Lock size={18} />}
+              {savingSenha ? 'Alterando...' : 'Alterar Senha'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

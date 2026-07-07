@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Scissors, Mail, Lock, Building2, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [tenantSlug, setTenantSlug] = useState(localStorage.getItem('tenantSlug') || '');
+  const [tenantSlug, setTenantSlug] = useState(localStorage.getItem('tenantSlug') || 'demo');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
@@ -116,6 +116,15 @@ export default function LoginPage() {
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
           </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-500">
+              Ainda não tem conta?{' '}
+              <Link to="/cadastro" className="text-primary-600 hover:text-primary-700 font-medium">
+                Cadastre seu estabelecimento
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

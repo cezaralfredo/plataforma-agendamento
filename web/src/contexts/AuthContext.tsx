@@ -26,6 +26,7 @@ interface AuthContextType {
   logout: () => void;
   isSuperAdmin: boolean;
   isProfissional: boolean;
+  isPlatformAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .catch(() => {
           localStorage.removeItem('token');
           localStorage.removeItem('tenantSlug');
+          localStorage.removeItem('tenantId');
           setToken(null);
         })
         .finally(() => setLoading(false));
@@ -62,9 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('tenantSlug', tenantSlug);
     }
 
-    const res = await api.post('/auth/login', { email, senha });
+    const res = await api.post('/auth/login', { email, senha, tenantSlug });
     const { token: newToken, usuario: user } = res.data;
     localStorage.setItem('token', newToken);
+    localStorage.setItem('tenantId', user.tenantId);
     setToken(newToken);
     setUsuario(user);
 
@@ -78,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('tenantSlug');
+    localStorage.removeItem('tenantId');
     setToken(null);
     setUsuario(null);
     setTenant(null);
@@ -85,9 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isSuperAdmin = usuario?.perfil === 'SUPER_ADMIN';
   const isProfissional = usuario?.perfil === 'PROFISSIONAL';
+  const isPlatformAdmin = usuario?.tenantId === 'default';
 
   return (
-    <AuthContext.Provider value={{ usuario, token, tenant, loading, login, logout, isSuperAdmin, isProfissional }}>
+    <AuthContext.Provider value={{ usuario, token, tenant, loading, login, logout, isSuperAdmin, isProfissional, isPlatformAdmin }}>
       {children}
     </AuthContext.Provider>
   );

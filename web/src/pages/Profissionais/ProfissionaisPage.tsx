@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Plus, Users, ToggleLeft, ToggleRight, Clock, Loader2 } from 'lucide-react';
+import { Plus, Users, ToggleLeft, ToggleRight, Clock, Loader2, Trash2, Link as LinkIcon, Copy, Check } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -13,6 +13,7 @@ interface Profissional {
   horarioInicio: string;
   horarioFim: string;
   ativo: boolean;
+  convites?: { id: string; usado: boolean; expiraEm: string }[];
 }
 
 type ProfissionalFormData = {
@@ -215,6 +216,10 @@ export default function ProfissionaisPage() {
   const [editingProf, setEditingProf] = useState<Profissional | null>(null);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Profissional | null>(null);
+  const [conviteUrl, setConviteUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const fetchProfissionais = async () => {
     setLoading(true);
@@ -249,13 +254,18 @@ export default function ProfissionaisPage() {
       if (editingProf) {
         await api.put(`/profissionais/${editingProf.id}`, payload);
         toast.success('Profissional atualizado com sucesso!');
+        setModalOpen(false);
+        setEditingProf(null);
       } else {
-        await api.post('/profissionais', payload);
+        const res = await api.post('/profissionais', payload);
+        const conviteToken = res.data.conviteToken;
+        if (conviteToken) {
+          const baseUrl = window.location.origin;
+          setConviteUrl(`${baseUrl}/convite/${conviteToken}`);
+        }
         toast.success('Profissional cadastrado com sucesso!');
+        setModalOpen(false);
       }
-
-      setModalOpen(false);
-      setEditingProf(null);
       fetchProfissionais();
     } catch (err: any) {
       toast.error(err?.response?.data?.error || 'Erro ao salvar profissional.');
@@ -274,6 +284,21 @@ export default function ProfissionaisPage() {
       toast.error(err?.response?.data?.error || 'Erro ao alterar status.');
     } finally {
       setTogglingId(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    setDeletingId(confirmDelete.id);
+    try {
+      await api.delete(`/profissionais/${confirmDelete.id}`);
+      toast.success('Profissional excluído permanentemente.');
+      setConfirmDelete(null);
+      fetchProfissionais();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Erro ao excluir profissional.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -374,7 +399,23 @@ export default function ProfissionaisPage() {
                     <ToggleLeft size={22} />
                   )}
                 </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmDelete(prof);
+                  }}
+                  className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                  title="Excluir"
+                >
+                  <Trash2 size={18} />
+                </button>
               </div>
+              {prof.convites && prof.convites.length > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full font-medium">
+                  <LinkIcon size={10} />
+                  Convite pendente
+                </span>
+              )}
 
               <div className="flex items-center gap-1 text-sm text-gray-500 mb-2">
                 <Clock size={14} />
@@ -395,6 +436,76 @@ export default function ProfissionaisPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Excluir Profissional</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Tem certeza que deseja excluir permanentemente <strong>{confirmDelete.nome}</strong>? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="btn-secondary"
+                disabled={deletingId === confirmDelete.id}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                className="btn-danger flex items-center gap-2"
+                disabled={deletingId === confirmDelete.id}
+              >
+                {deletingId === confirmDelete.id && <Loader2 size={16} className="animate-spin" />}
+                {deletingId === confirmDelete.id ? 'Excluindo...' : 'Excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {conviteUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Profissional Cadastrado!</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Compartilhe o link abaixo com o profissional para ele criar o próprio acesso:
+            </p>
+            <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200 mb-4">
+              <LinkIcon size={16} className="text-gray-400 shrink-0" />
+              <input
+                type="text"
+                readOnly
+                value={conviteUrl}
+                className="text-sm bg-transparent text-gray-700 flex-1 outline-none"
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(conviteUrl);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors text-gray-500 hover:text-primary-600"
+                title="Copiar"
+              >
+                {copied ? <Check size={16} className="text-green-600" /> : <Copy size={16} />}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mb-4">
+              O link é válido por 7 dias e pode ser usado apenas uma vez.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setConviteUrl(null)}
+                className="btn-primary"
+              >
+                Ok
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -1,7 +1,8 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-  LayoutDashboard, CalendarDays, Users, Scissors, UserCircle, DollarSign, Settings, Building2, LogOut, Menu, X
+  LayoutDashboard, CalendarDays, Users, Scissors, UserCircle, DollarSign, Settings, Building2,
+  LogOut, Menu, X, BarChart3, FileText, Calendar, User
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -13,11 +14,24 @@ const navItems = [
   { to: '/clientes', icon: UserCircle, label: 'Clientes' },
   { to: '/financeiro', icon: DollarSign, label: 'Financeiro' },
   { to: '/configuracoes', icon: Settings, label: 'Configurações' },
-  { to: '/tenants', icon: Building2, label: 'Tenants' },
+];
+
+const profissionalNavItems = [
+  { to: '/profissional', icon: LayoutDashboard, label: 'Meu Painel' },
+  { to: '/profissional/agendamentos', icon: CalendarDays, label: 'Meus Agendamentos' },
+  { to: '/profissional/perfil', icon: User, label: 'Meu Perfil' },
+  { to: '/profissional/agenda', icon: Calendar, label: 'Minha Agenda' },
+  { to: '/configuracoes', icon: Settings, label: 'Configurações' },
+];
+
+const adminNavItems = [
+  { to: '/admin', icon: BarChart3, label: 'Plataforma' },
+  { to: '/admin/estabelecimentos', icon: Building2, label: 'Estabelecimentos' },
+  { to: '/admin/faturas', icon: FileText, label: 'Faturamento' },
 ];
 
 export default function Layout() {
-  const { usuario, tenant, logout, isSuperAdmin } = useAuth();
+  const { usuario, tenant, logout, isSuperAdmin, isProfissional, isPlatformAdmin } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -26,7 +40,7 @@ export default function Layout() {
     navigate('/login');
   };
 
-  const filteredNav = isSuperAdmin ? navItems : navItems.filter(n => n.to === '/dashboard' || n.to === '/agendamentos');
+  const filteredNav = isSuperAdmin ? navItems : isProfissional ? [] : navItems.filter(n => n.to === '/dashboard' || n.to === '/agendamentos');
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -45,7 +59,7 @@ export default function Layout() {
         </div>
 
         <nav className="p-4 space-y-1">
-          {filteredNav.map((item) => (
+          {filteredNav.length > 0 && filteredNav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -56,6 +70,42 @@ export default function Layout() {
               <span>{item.label}</span>
             </NavLink>
           ))}
+          {isProfissional && (
+            <>
+              <div className="pt-4 pb-1">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3">Profissional</p>
+              </div>
+              {profissionalNavItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setSidebarOpen(false)}
+                  className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}
+                >
+                  <item.icon size={20} />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </>
+          )}
+          {isPlatformAdmin && (
+            <>
+              <div className="pt-4 pb-1">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3">Administração</p>
+              </div>
+              {adminNavItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setSidebarOpen(false)}
+                  className={({ isActive }) => isActive ? 'sidebar-link-active' : 'sidebar-link'}
+                >
+                  <item.icon size={20} />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </>
+          )}
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">

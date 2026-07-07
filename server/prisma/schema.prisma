@@ -79,6 +79,10 @@ model Tenant {
   sessoes       SessaoBot[]
   configuracoes Configuracao[]
   logsBot       LogBot[]
+  convites      ConviteProfissional[]
+  assinatura    Assinatura?
+  faturas       Fatura[]
+  atividades    AtividadeTenant[]
 
   @@map("tenants")
 }
@@ -138,9 +142,27 @@ model Profissional {
   usuario     Usuario?
   agendamentos Agendamento[]
   bloqueios   BloqueioAgenda[]
+  convites    ConviteProfissional[]
 
   @@index([tenantId])
   @@map("profissionais")
+}
+
+model ConviteProfissional {
+  id              String   @id @default(uuid())
+  tenantId        String
+  profissionalId  String
+  token           String   @unique
+  usado           Boolean  @default(false)
+  email           String?
+  criadoEm        DateTime @default(now())
+  expiraEm        DateTime
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  profissional Profissional @relation(fields: [profissionalId], references: [id])
+
+  @@index([token])
+  @@map("convites_profissional")
 }
 
 model Servico {
@@ -279,4 +301,97 @@ model LogBot {
 
   @@index([tenantId])
   @@map("logs_bot")
+}
+
+model Plano {
+  id              String   @id @default(uuid())
+  nome            String
+  slug            String   @unique
+  descricao       String?
+  preco           Float    @default(0)
+  moeda           String   @default("BRL")
+
+  maxProfissionais      Int  @default(2)
+  maxServicos           Int  @default(10)
+  maxClientes           Int  @default(100)
+  maxAgendamentosMes    Int  @default(200)
+
+  relatoriosFinanceiros Boolean @default(false)
+  apiWhatsApp           Boolean @default(false)
+  multiProfissional     Boolean @default(false)
+  customDomain          Boolean @default(false)
+  evolucaoApi           Boolean @default(false)
+
+  destaque   Boolean @default(false)
+  ordem      Int     @default(0)
+  ativo      Boolean @default(true)
+  criadoEm   DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  assinaturas Assinatura[]
+
+  @@map("planos")
+}
+
+model Assinatura {
+  id               String   @id @default(uuid())
+  tenantId         String   @unique
+  planoId          String
+  status           String   @default("ATIVA")
+  ciclo            String   @default("MENSAL")
+  dataInicio       DateTime @default(now())
+  dataProximoCiclo DateTime
+  dataCancelamento DateTime?
+  autoRenovar      Boolean  @default(true)
+  trial            Boolean  @default(false)
+  trialTerminaEm   DateTime?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  plano     Plano    @relation(fields: [planoId], references: [id])
+  faturas   Fatura[]
+
+  @@map("assinaturas")
+}
+
+model Fatura {
+  id             String    @id @default(uuid())
+  assinaturaId   String
+  tenantId       String
+  numero         String    @unique
+  descricao      String?
+  valor          Float
+  moeda          String    @default("BRL")
+  status         String    @default("PENDENTE")
+  dataVencimento DateTime
+  dataPagamento  DateTime?
+  metodoPagamento String?
+  asaasPaymentId String?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  assinatura Assinatura @relation(fields: [assinaturaId], references: [id])
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([assinaturaId])
+  @@map("faturas")
+}
+
+model AtividadeTenant {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tipo      String
+  descricao String
+  metadata  Json?
+  criadoEm  DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([criadoEm])
+  @@map("atividades_tenant")
 }

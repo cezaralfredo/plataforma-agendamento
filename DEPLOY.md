@@ -52,10 +52,51 @@ O compose de produção não publica portas diretamente; expõe os serviços via
 A aplicação roda em modo multi-tenant. Cada tenant usa um slug único (ex: `meusalao`).
 
 Criacao de tenants:
-- **Via API:** `POST /api/tenants` (requer token admin)
-- **Seed inicial:** o slug padrao é definido em `DEFAULT_TENANT_SLUG`
+- **Via API:** `POST /api/tenants/signup` (requer chave de registro ou token admin)
+- **Seed inicial:** `docker compose exec api npx ts-node prisma/seed.ts`
 
 Ao criar um tenant, copie o `instanceId` e use-o no Evolution para conectar o WhatsApp daquele estabelecimento.
+
+### Admin Dashboard (SaaS)
+
+Apos o seed, o super admin tem acesso ao painel administrativo da plataforma:
+
+| Rota | Funcionalidade |
+|------|---------------|
+| `/admin` | Dashboard global (métricas, planos, financeiro) |
+| `/admin/estabelecimentos` | Lista completa de tenants com busca e filtros |
+| `/admin/estabelecimentos/:id` | Detalhes do tenant, assinatura, faturas, atividades |
+| `/admin/planos` | CRUD de planos de assinatura |
+| `/admin/faturas` | Faturamento recorrente |
+
+### Planos de Assinatura
+
+O seed cria 3 planos automaticamente:
+
+| Plano | Preço | Profissionais | Serviços | Clientes |
+|-------|-------|---------------|----------|----------|
+| Basic | Grátis | 2 | 10 | 100 |
+| Pro | R$ 97/mês | 5 | 30 | 500 |
+| Enterprise | R$ 197/mês | Ilimitado | Ilimitado | Ilimitado |
+
+Para gerenciar planos:
+- **Via API:** `GET/POST/PUT /api/planos` (requer token super admin)
+- **Via Web:** Acessar `/admin/planos`
+
+### Assinaturas
+
+Cada tenant possui uma assinatura vinculada a um plano. Para alterar:
+
+- **Via API:** `PUT /api/assinaturas/:id` com `{ planoId: "..." }`
+- **Via Web:** Acessar `/admin/estabelecimentos/:id` e clicar em "Alterar Plano"
+
+### Faturamento
+
+O sistema gera faturas com base no ciclo da assinatura. Para gerenciar:
+
+- **Via API:** `POST /api/faturas/gerar` para criar manualmente
+- **Via API:** `POST /api/faturas/gerar-ciclo` para gerar faturas de todos os ciclos vencidos
+- **Via Web:** Acessar `/admin/faturas`
 
 ## Healthchecks
 

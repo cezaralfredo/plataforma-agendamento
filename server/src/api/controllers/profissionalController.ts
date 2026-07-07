@@ -11,7 +11,9 @@ import {
   isBefore,
   isAfter,
   format,
+  addDays,
 } from 'date-fns';
+import crypto from 'crypto';
 import prisma from '../../services/prisma';
 import { getTenantId, verifyToken, requireSuperAdmin } from '../middleware/auth';
 
@@ -75,6 +77,11 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
         _count: {
           select: { agendamentos: true },
         },
+        convites: {
+          where: { usado: false },
+          orderBy: { criadoEm: 'desc' },
+          take: 1,
+        },
       },
     });
 
@@ -124,7 +131,19 @@ router.post('/', verifyToken, requireSuperAdmin, async (req: Request, res: Respo
       },
     });
 
-    res.status(201).json(profissional);
+    const convite = await prisma.conviteProfissional.create({
+      data: {
+        tenantId,
+        profissionalId: profissional.id,
+        token: crypto.randomUUID(),
+        expiraEm: addDays(new Date(), 7),
+      },
+    });
+
+    res.status(201).json({
+      ...profissional,
+      conviteToken: convite.token,
+    });
   } catch (error) {
     next(error);
   }
@@ -205,17 +224,17 @@ router.delete('/:id', verifyToken, requireSuperAdmin, async (req: Request, res: 
 
     if (agendamentosFuturos) {
       res.status(400).json({
-        erro: 'Profissional possui agendamentos futuros. Remova-os antes de desativar.',
+        erro: 'Profissional possui agendamentos futuros. Remova-os antes de excluir.',
       });
       return;
     }
 
-    const atualizado = await prisma.profissional.update({
-      where: { id: req.params.id },
-      data: { ativo: false },
-    });
+    await prisma.$transaction([
+      prisma.bloqueioAgenda.deleteMany({ where: { profissionalId: req.params.id } }),
+      prisma.profissional.delete({ where: { id: req.params.id } }),
+    ]);
 
-    res.json(atualizado);
+    res.json({ mensagem: 'Profissional excluído permanentemente.' });
   } catch (error) {
     next(error);
   }

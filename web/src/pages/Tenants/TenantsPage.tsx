@@ -20,7 +20,7 @@ interface Tenant {
 }
 
 export default function TenantsPage() {
-  const { isSuperAdmin } = useAuth();
+  const { isPlatformAdmin } = useAuth();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -40,7 +40,7 @@ export default function TenantsPage() {
     fetchTenants();
   }, []);
 
-  if (!isSuperAdmin) {
+  if (!isPlatformAdmin) {
     return (
       <div className="text-center py-12 text-gray-500">
         <Building2 size={48} className="mx-auto mb-3 text-gray-300" />

@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import prisma from '../../services/prisma';
 import { config } from '../../config';
-import { getTenantId, verifyToken } from '../middleware/auth';
+import { getTenantId, verifyToken, isValidUUID } from '../middleware/auth';
 
 const router = Router();
 
@@ -43,6 +43,32 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
       const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } });
       if (tenant && tenant.ativo) {
         tenantId = tenant.id;
+      }
+    }
+
+    if (!tenantId) {
+      const headerSlug = req.headers['x-tenant-id'];
+      const slug = Array.isArray(headerSlug) ? headerSlug[0] : headerSlug;
+      if (slug && !isValidUUID(slug)) {
+        let tenant = await prisma.tenant.findUnique({ where: { slug } });
+        if (!tenant) {
+          tenant = await prisma.tenant.findUnique({ where: { id: slug } });
+        }
+        if (tenant && tenant.ativo) {
+          tenantId = tenant.id;
+        }
+      } else if (slug && isValidUUID(slug)) {
+        tenantId = slug;
+      }
+    }
+
+    if (!tenantId) {
+      const slug = req.query.slug as string;
+      if (slug) {
+        const tenant = await prisma.tenant.findUnique({ where: { slug } });
+        if (tenant && tenant.ativo) {
+          tenantId = tenant.id;
+        }
       }
     }
 

@@ -1,7 +1,96 @@
 import { PrismaClient, CategoriaServico, PerfilUsuario } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { addDays, addMonths } from 'date-fns';
 
 const prisma = new PrismaClient();
+
+async function seedPlanos() {
+  const planos = [
+    {
+      nome: 'Basic',
+      slug: 'basic',
+      descricao: 'Para pequenos negócios que estão começando',
+      preco: 0,
+      maxProfissionais: 2,
+      maxServicos: 10,
+      maxClientes: 100,
+      maxAgendamentosMes: 200,
+      relatoriosFinanceiros: false,
+      apiWhatsApp: true,
+      multiProfissional: true,
+      customDomain: false,
+      evolucaoApi: false,
+      destaque: false,
+      ordem: 1,
+    },
+    {
+      nome: 'Pro',
+      slug: 'pro',
+      descricao: 'Para estabelecimentos em crescimento',
+      preco: 97.00,
+      maxProfissionais: 5,
+      maxServicos: 30,
+      maxClientes: 500,
+      maxAgendamentosMes: 1000,
+      relatoriosFinanceiros: true,
+      apiWhatsApp: true,
+      multiProfissional: true,
+      customDomain: true,
+      evolucaoApi: true,
+      destaque: true,
+      ordem: 2,
+    },
+    {
+      nome: 'Enterprise',
+      slug: 'enterprise',
+      descricao: 'Para redes e grandes operações',
+      preco: 197.00,
+      maxProfissionais: 999,
+      maxServicos: 999,
+      maxClientes: 99999,
+      maxAgendamentosMes: 99999,
+      relatoriosFinanceiros: true,
+      apiWhatsApp: true,
+      multiProfissional: true,
+      customDomain: true,
+      evolucaoApi: true,
+      destaque: false,
+      ordem: 3,
+    },
+  ];
+
+  const criados = [];
+  for (const p of planos) {
+    const plano = await prisma.plano.upsert({
+      where: { slug: p.slug },
+      update: p,
+      create: p,
+    });
+    criados.push(plano);
+  }
+  return criados;
+}
+
+async function seedAssinatura(tenantId: string) {
+  const plano = await prisma.plano.findUnique({ where: { slug: 'basic' } });
+  if (!plano) throw new Error('Plano basic não encontrado');
+
+  const hoje = new Date();
+  const assinatura = await prisma.assinatura.upsert({
+    where: { tenantId },
+    update: {},
+    create: {
+      tenantId,
+      planoId: plano.id,
+      status: 'ATIVA',
+      ciclo: 'MENSAL',
+      dataInicio: hoje,
+      dataProximoCiclo: addMonths(hoje, 1),
+      autoRenovar: true,
+    },
+  });
+  return assinatura;
+}
 
 async function main() {
   console.log('🌱 Iniciando seed...');
@@ -25,6 +114,17 @@ async function main() {
     },
   });
   console.log(`Tenant criado: ${tenant.slug} (${tenant.id})`);
+
+  const planos = await seedPlanos();
+  console.log(`✅ ${planos.length} planos criados`);
+
+  const assinatura = await seedAssinatura(tenant.id);
+  console.log(`✅ Assinatura criada: ${assinatura.id} (${assinatura.status})`);
+
+  await prisma.tenant.update({
+    where: { id: tenant.id },
+    data: { plano: 'BASIC' },
+  });
 
   const admin = await prisma.usuario.upsert({
     where: { tenantId_email: { tenantId: tenant.id, email: 'admin@salaobarbearia.com' } },

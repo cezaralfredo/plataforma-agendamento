@@ -13,6 +13,13 @@ import agendamentoController from '../controllers/agendamentoController';
 import pagamentoController from '../controllers/pagamentoController';
 import dashboardController from '../controllers/dashboardController';
 import configuracoesController from '../controllers/configuracoesController';
+import planoController from '../controllers/planoController';
+import assinaturaController from '../controllers/assinaturaController';
+import faturaController from '../controllers/faturaController';
+import adminController from '../controllers/adminController';
+import profissionalPainelController from '../controllers/profissionalPainelController';
+import conviteController from '../controllers/conviteController';
+import clientePortalController from '../controllers/clientePortalController';
 
 const router = Router();
 
@@ -70,6 +77,13 @@ router.use('/agendamentos', agendamentoController);
 router.use('/pagamentos', pagamentoController);
 router.use('/dashboard', dashboardController);
 router.use('/configuracoes', configuracoesController);
+router.use('/planos', planoController);
+router.use('/assinaturas', assinaturaController);
+router.use('/faturas', faturaController);
+router.use('/admin', adminController);
+router.use('/profissional', profissionalPainelController);
+router.use('/convites', conviteController);
+router.use('/cliente-portal', clientePortalController);
 
 router.get('/health', (req, res) => {
   res.json({
