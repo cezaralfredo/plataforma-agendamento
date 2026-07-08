@@ -259,7 +259,9 @@ export default function AgendamentosPage() {
                           <td className="py-3 pr-4 text-gray-800 font-medium">{ag.codigo}</td>
                           <td className="py-3 pr-4 text-gray-800">{ag.cliente?.nome}</td>
                           <td className="py-3 pr-4 text-gray-800">{ag.profissional?.nome}</td>
-                          <td className="py-3 pr-4 text-gray-800">{ag.servico?.nome}</td>
+                          <td className="py-3 pr-4 text-gray-800">
+  {ag.servicosAgendamento?.map(sa => sa.servico.nome).join(', ') || ag.servico?.nome}
+</td>
                           <td className="py-3 pr-4 text-gray-600 whitespace-nowrap">
                             {format(parseISO(ag.data), 'dd/MM/yyyy')} às {ag.hora}
                           </td>

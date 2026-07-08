@@ -5,6 +5,7 @@ import { startOfDay, endOfDay, parseISO, format, addMinutes, setHours, setMinute
 import prisma from '../../services/prisma';
 import { config } from '../../config';
 import { verifyToken } from '../middleware/auth';
+import { getPixServiceForTenant } from '../../services/pixService';
 
 const router = Router();
 
@@ -106,6 +107,9 @@ router.get('/dashboard', authCliente, async (req: Request, res: Response, next: 
         include: {
           servico: { select: { id: true, nome: true, valor: true, duracaoMinutos: true } },
           profissional: { select: { id: true, nome: true } },
+          servicosAgendamento: {
+            include: { servico: { select: { id: true, nome: true, valor: true, duracaoMinutos: true } } },
+          },
         },
       }),
       prisma.agendamento.count({ where: { clienteId, tenantId } }),
@@ -153,6 +157,9 @@ router.get('/agendamentos', authCliente, async (req: Request, res: Response, nex
         include: {
           servico: { select: { id: true, nome: true, valor: true, duracaoMinutos: true } },
           profissional: { select: { id: true, nome: true } },
+          servicosAgendamento: {
+            include: { servico: { select: { id: true, nome: true, valor: true, duracaoMinutos: true } } },
+          },
         },
       }),
       prisma.agendamento.count({ where }),
@@ -169,20 +176,27 @@ router.post('/agendamentos', authCliente, async (req: Request, res: Response, ne
     const { clienteId, tenantId } = req.clienteSessao!;
 
     const schema = z.object({
-      servicoId: z.number().int().positive(),
+      servicoIds: z.array(z.number().int().positive()).min(1, 'Selecione ao menos um serviço'),
       profissionalId: z.string().uuid(),
       dataHora: z.string().refine((v) => !isNaN(Date.parse(v)), 'Data/hora inválida'),
     });
 
-    const { servicoId, profissionalId, dataHora } = schema.parse(req.body);
+    const { servicoIds, profissionalId, dataHora } = schema.parse(req.body);
     const dataRef = parseISO(dataHora);
 
-    const [servico, profissional] = await Promise.all([
-      prisma.servico.findFirst({ where: { id: servicoId, tenantId, ativo: true } }),
-      prisma.profissional.findFirst({ where: { id: profissionalId, tenantId, ativo: true } }),
-    ]);
+    const servicos = await prisma.servico.findMany({
+      where: { id: { in: servicoIds }, tenantId, ativo: true },
+    });
 
-    if (!servico) { res.status(404).json({ error: 'Serviço não encontrado.' }); return; }
+    if (servicos.length !== servicoIds.length) {
+      res.status(404).json({ error: 'Um ou mais serviços não encontrados.' });
+      return;
+    }
+
+    const profissional = await prisma.profissional.findFirst({
+      where: { id: profissionalId, tenantId, ativo: true },
+    });
+
     if (!profissional) { res.status(404).json({ error: 'Profissional não encontrado.' }); return; }
 
     const diaSemana = dataRef.getDay();
@@ -196,7 +210,10 @@ router.post('/agendamentos', authCliente, async (req: Request, res: Response, ne
     const inicioDia = setMinutes(setHours(startOfDay(dataRef), hInicio), mInicio);
     const fimDia = setMinutes(setHours(startOfDay(dataRef), hFim), mFim);
 
-    if (isBefore(dataRef, inicioDia) || isAfter(addMinutes(dataRef, servico.duracaoMinutos), fimDia)) {
+    const duracaoTotal = servicos.reduce((sum, s) => sum + s.duracaoMinutos, 0);
+    const valorTotal = servicos.reduce((sum, s) => sum + s.valor, 0);
+
+    if (isBefore(dataRef, inicioDia) || isAfter(addMinutes(dataRef, duracaoTotal), fimDia)) {
       res.status(400).json({ error: 'Horário fora do expediente do profissional.' });
       return;
     }
@@ -206,37 +223,48 @@ router.post('/agendamentos', authCliente, async (req: Request, res: Response, ne
       return;
     }
 
-    const conflito = await prisma.agendamento.findFirst({
+    const conflitos = await prisma.agendamento.findMany({
       where: {
         tenantId,
         profissionalId,
         dataHora: { gte: startOfDay(dataRef), lte: endOfDay(dataRef) },
         status: { in: ['PENDENTE', 'CONFIRMADO'] },
       },
-      include: { servico: { select: { duracaoMinutos: true } } },
+      include: { servicosAgendamento: { include: { servico: { select: { duracaoMinutos: true } } } } },
     });
 
-    if (conflito) {
-      const conflitoFim = addMinutes(conflito.dataHora, conflito.servico?.duracaoMinutos || 60);
-      const novoFim = addMinutes(dataRef, servico.duracaoMinutos);
-      if (isWithinInterval(dataRef, { start: conflito.dataHora, end: conflitoFim }) ||
-          isWithinInterval(novoFim, { start: conflito.dataHora, end: conflitoFim })) {
+    const novoFim = addMinutes(dataRef, duracaoTotal);
+    for (const ag of conflitos) {
+      const dur = ag.servicosAgendamento.reduce((s, sa) => s + (sa.servico?.duracaoMinutos || 30), 0) || 30;
+      const agFim = addMinutes(ag.dataHora, dur);
+      if (dataRef < agFim && novoFim > ag.dataHora) {
         res.status(400).json({ error: 'Já existe um agendamento neste horário.' });
         return;
       }
     }
+
+    const primeiroServico = servicos[0];
 
     const agendamento = await prisma.agendamento.create({
       data: {
         tenantId,
         clienteId,
         profissionalId,
-        servicoId,
+        servicoId: primeiroServico.id,
         dataHora: dataRef,
-        valorPago: servico.valor,
+        valorPago: valorTotal,
+        servicosAgendamento: {
+          create: servicos.map(s => ({
+            tenantId,
+            servicoId: s.id,
+            valor: s.valor,
+          })),
+        },
       },
       include: {
-        servico: { select: { nome: true, valor: true } },
+        servicosAgendamento: {
+          include: { servico: { select: { id: true, nome: true, valor: true, duracaoMinutos: true } } },
+        },
         profissional: { select: { nome: true } },
       },
     });
@@ -402,11 +430,19 @@ router.get('/profissionais', async (req: Request, res: Response, next: NextFunct
     const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } });
     if (!tenant) { res.status(404).json({ error: 'Estabelecimento não encontrado.' }); return; }
 
-    const servicoId = req.query.servicoId ? parseInt(req.query.servicoId as string) : undefined;
+    const servicoIdsStr = (req.query.servicoIds as string) || (req.query.servicoId as string);
+    const servicoIds = servicoIdsStr?.split(',').map(Number).filter(n => !isNaN(n));
 
     const where: any = { tenantId: tenant.id, ativo: true };
-    if (servicoId) {
-      where.especialidades = { hasSome: [servicoId.toString()] };
+    if (servicoIds && servicoIds.length > 0) {
+      const servicos = await prisma.servico.findMany({
+        where: { id: { in: servicoIds }, tenantId: tenant.id },
+        select: { nome: true },
+      });
+      const nomesServicos = servicos.map(s => s.nome);
+      if (nomesServicos.length > 0) {
+        where.especialidades = { hasSome: nomesServicos };
+      }
     }
 
     const profissionais = await prisma.profissional.findMany({
@@ -423,10 +459,10 @@ router.get('/profissionais', async (req: Request, res: Response, next: NextFunct
 
 router.get('/horarios', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { slug, profissionalId, servicoId, data } = req.query;
+    const { slug, profissionalId, servicoId, servicoIds, data } = req.query;
 
-    if (!slug || !profissionalId || !servicoId || !data) {
-      res.status(400).json({ error: 'slug, profissionalId, servicoId e data são obrigatórios.' });
+    if (!slug || !profissionalId || !data) {
+      res.status(400).json({ error: 'slug, profissionalId e data são obrigatórios.' });
       return;
     }
 
@@ -438,10 +474,26 @@ router.get('/horarios', async (req: Request, res: Response, next: NextFunction) 
     });
     if (!profissional) { res.status(404).json({ error: 'Profissional não encontrado.' }); return; }
 
-    const servico = await prisma.servico.findFirst({
-      where: { id: parseInt(servicoId as string), tenantId: tenant.id, ativo: true },
+    let servicoIdsArray: number[];
+    if (servicoIds) {
+      servicoIdsArray = (servicoIds as string).split(',').map(Number);
+    } else if (servicoId) {
+      servicoIdsArray = [parseInt(servicoId as string)];
+    } else {
+      res.status(400).json({ error: 'servicoId ou servicoIds é obrigatório.' });
+      return;
+    }
+
+    const servicos = await prisma.servico.findMany({
+      where: { id: { in: servicoIdsArray }, tenantId: tenant.id, ativo: true },
     });
-    if (!servico) { res.status(404).json({ error: 'Serviço não encontrado.' }); return; }
+
+    if (servicos.length !== servicoIdsArray.length) {
+      res.status(404).json({ error: 'Um ou mais serviços não encontrados.' });
+      return;
+    }
+
+    const duracaoTotal = servicos.reduce((sum, s) => sum + s.duracaoMinutos, 0);
 
     const dataRef = parseISO(data as string);
     const diaSemana = dataRef.getDay();
@@ -458,7 +510,11 @@ router.get('/horarios', async (req: Request, res: Response, next: NextFunction) 
         dataHora: { gte: startOfDay(dataRef), lte: endOfDay(dataRef) },
         status: { in: ['PENDENTE', 'CONFIRMADO'] },
       },
-      include: { servico: { select: { duracaoMinutos: true } } },
+      include: {
+        servicosAgendamento: {
+          include: { servico: { select: { duracaoMinutos: true } } },
+        },
+      },
     });
 
     const bloqueios = await prisma.bloqueioAgenda.findMany({
@@ -473,11 +529,12 @@ router.get('/horarios', async (req: Request, res: Response, next: NextFunction) 
     const fimDoDia = setMinutes(setHours(startOfDay(dataRef), hFim), mFim);
 
     while (isBefore(current, fimDoDia)) {
-      const slotFim = addMinutes(current, servico.duracaoMinutos);
+      const slotFim = addMinutes(current, duracaoTotal);
 
       if (!isAfter(slotFim, fimDoDia)) {
         const temConflito = agendamentos.some((ag) => {
-          const agFim = addMinutes(ag.dataHora, ag.servico.duracaoMinutos);
+          const dur = ag.servicosAgendamento.reduce((s, sa) => s + (sa.servico?.duracaoMinutos || 30), 0) || 30;
+          const agFim = addMinutes(ag.dataHora, dur);
           return current < agFim && slotFim > ag.dataHora;
         });
 
@@ -494,6 +551,119 @@ router.get('/horarios', async (req: Request, res: Response, next: NextFunction) 
     }
 
     res.json({ data, horarioInicio: profissional.horarioInicio, horarioFim: profissional.horarioFim, diaUtil: true, horariosDisponiveis: slots });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/agendamentos/:id/gerar-pix', authCliente, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { clienteId, tenantId } = req.clienteSessao!;
+    const { id } = req.params;
+
+    const agendamento = await prisma.agendamento.findFirst({
+      where: { id, clienteId, tenantId },
+      include: {
+        pagamento: true,
+        cliente: { select: { nome: true, telefone: true } },
+        servicosAgendamento: { include: { servico: { select: { nome: true, valor: true } } } },
+      },
+    });
+
+    if (!agendamento) {
+      res.status(404).json({ error: 'Agendamento não encontrado.' });
+      return;
+    }
+
+    if (agendamento.status === 'CONFIRMADO') {
+      res.status(400).json({ error: 'Este agendamento já foi confirmado.' });
+      return;
+    }
+
+    if (agendamento.status === 'CANCELADO') {
+      res.status(400).json({ error: 'Este agendamento foi cancelado.' });
+      return;
+    }
+
+    if (agendamento.status === 'CONCLUIDO') {
+      res.status(400).json({ error: 'Este agendamento já foi concluído.' });
+      return;
+    }
+
+    if (agendamento.pagamento?.status === 'PAGO') {
+      res.status(400).json({ error: 'Este agendamento já foi pago.' });
+      return;
+    }
+
+    if (agendamento.pagamento?.status === 'AGUARDANDO' && agendamento.pagamento.txidPix) {
+      res.json({ pagamento: agendamento.pagamento, expiraEm: agendamento.pagamento.expiradoEm });
+      return;
+    }
+
+    const pixService = await getPixServiceForTenant(tenantId);
+
+    if (!pixService.hasValidConfig()) {
+      res.status(400).json({ error: 'Pagamento PIX não configurado para este estabelecimento.' });
+      return;
+    }
+
+    const { qrCode, copiaECola, asaasPaymentId } = await pixService.gerarCobranca(
+      agendamento.valorPago,
+      agendamento.cliente.nome,
+      agendamento.cliente.telefone,
+      agendamento.id,
+    );
+
+    const expiracao = new Date(Date.now() + 15 * 60 * 1000);
+
+    const pagamento = await prisma.pagamento.upsert({
+      where: { agendamentoId: id },
+      create: {
+        tenantId,
+        agendamentoId: id,
+        txidPix: asaasPaymentId,
+        valor: agendamento.valorPago,
+        qrCode,
+        copiaECola,
+        expiradoEm: expiracao,
+      },
+      update: {
+        txidPix: asaasPaymentId,
+        valor: agendamento.valorPago,
+        qrCode,
+        copiaECola,
+        status: 'AGUARDANDO',
+        expiradoEm: expiracao,
+        pagoEm: null,
+      },
+    });
+
+    res.status(201).json({ pagamento, expiraEm: expiracao });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/pagamentos/:agendamentoId', authCliente, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { clienteId, tenantId } = req.clienteSessao!;
+    const { agendamentoId } = req.params;
+
+    const agendamento = await prisma.agendamento.findFirst({
+      where: { id: agendamentoId, clienteId, tenantId },
+      include: {
+        pagamento: true,
+        profissional: { select: { nome: true } },
+        servicosAgendamento: { include: { servico: { select: { nome: true, valor: true } } } },
+      },
+    });
+
+    if (!agendamento) {
+      res.status(404).json({ error: 'Agendamento não encontrado.' });
+      return;
+    }
+
+    res.json({ agendamento, pagamento: agendamento.pagamento });
   } catch (error) {
     next(error);
   }

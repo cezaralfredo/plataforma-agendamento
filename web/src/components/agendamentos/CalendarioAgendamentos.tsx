@@ -119,11 +119,11 @@ export default function CalendarioAgendamentos({ onSelectEvent }: CalendarioAgen
         <div className="truncate px-1 text-xs leading-tight">
           <p className="font-medium truncate">{event.resource?.cliente?.nome || 'Cliente'}</p>
           <p className="truncate opacity-80">
-            {event.resource?.servico?.nome
-              ? event.resource.servico.nome.length > 18
-                ? event.resource.servico.nome.substring(0, 18) + '...'
-                : event.resource.servico.nome
-              : 'Serviço'}
+            {event.resource?.servicosAgendamento?.length
+              ? event.resource.servicosAgendamento.map(sa => sa.servico.nome).join(', ').length > 22
+                ? event.resource.servicosAgendamento.map(sa => sa.servico.nome).join(', ').substring(0, 22) + '...'
+                : event.resource.servicosAgendamento.map(sa => sa.servico.nome).join(', ')
+              : event.resource?.servico?.nome || 'Serviço'}
           </p>
         </div>
       ),

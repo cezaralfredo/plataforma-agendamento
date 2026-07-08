@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout/Layout';
 import LoginPage from './pages/Login/LoginPage';
@@ -6,6 +6,7 @@ import CadastroPage from './pages/SignUp/CadastroPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import AgendamentosPage from './pages/Agendamentos/AgendamentosPage';
 import ProfissionaisPage from './pages/Profissionais/ProfissionaisPage';
+import ProfissionalEditPage from './pages/Profissionais/ProfissionalEditPage';
 import ServicosPage from './pages/Servicos/ServicosPage';
 import ClientesPage from './pages/Clientes/ClientesPage';
 import FinanceiroPage from './pages/Financeiro/FinanceiroPage';
@@ -18,15 +19,23 @@ import ProfissionalDashboardPage from './pages/Profissional/DashboardPage';
 import MeusAgendamentosPage from './pages/Profissional/MeusAgendamentosPage';
 import MeuPerfilPage from './pages/Profissional/MeuPerfilPage';
 import MinhaAgendaPage from './pages/Profissional/MinhaAgendaPage';
+import MeusClientesPage from './pages/Profissional/MeusClientesPage';
 import ConvitePage from './pages/Convite/ConvitePage';
 import ClienteAcessoPage from './pages/Cliente/AcessoPage';
 import ClienteDashboardPage from './pages/Cliente/DashboardPage';
 import ClienteMeusAgendamentosPage from './pages/Cliente/MeusAgendamentosPage';
 import ClienteNovoAgendamentoPage from './pages/Cliente/NovoAgendamentoPage';
+import ClientePagamentoPixPage from './pages/Cliente/PagamentoPixPage';
 import ClienteMeusCreditosPage from './pages/Cliente/MeusCreditosPage';
 import ClienteMeuPerfilPage from './pages/Cliente/MeuPerfilPage';
 import ClienteLayout from './components/Cliente/ClienteLayout';
 import { ClientAuthProvider, useClientAuth } from './contexts/Cliente/ClientAuthContext';
+
+function ClienteRoutes() {
+  const { sessao } = useClientAuth();
+  if (!sessao) return <Outlet />;
+  return <ClienteLayout />;
+}
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { usuario, loading } = useAuth();
@@ -56,6 +65,7 @@ function AppRoutes() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="agendamentos" element={<AgendamentosPage />} />
         <Route path="profissionais" element={<ProfissionaisPage />} />
+        <Route path="profissionais/:id" element={<ProfissionalEditPage />} />
         <Route path="servicos" element={<ServicosPage />} />
         <Route path="clientes" element={<ClientesPage />} />
         <Route path="financeiro" element={<FinanceiroPage />} />
@@ -69,16 +79,18 @@ function AppRoutes() {
         <Route path="profissional/agendamentos" element={<MeusAgendamentosPage />} />
         <Route path="profissional/perfil" element={<MeuPerfilPage />} />
         <Route path="profissional/agenda" element={<MinhaAgendaPage />} />
+        <Route path="profissional/clientes" element={<MeusClientesPage />} />
       </Route>
-      <Route path="/cliente/:slug/acesso" element={<ClienteAcessoPage />} />
       <Route path="/cliente/:slug" element={
         <ClientAuthProvider>
-          <ClienteLayout />
+          <ClienteRoutes />
         </ClientAuthProvider>
       }>
+        <Route path="acesso" element={<ClienteAcessoPage />} />
         <Route index element={<ClientRoute><ClienteDashboardPage /></ClientRoute>} />
         <Route path="agendamentos" element={<ClientRoute><ClienteMeusAgendamentosPage /></ClientRoute>} />
         <Route path="novo-agendamento" element={<ClientRoute><ClienteNovoAgendamentoPage /></ClientRoute>} />
+        <Route path="pagamento/:agendamentoId" element={<ClientRoute><ClientePagamentoPixPage /></ClientRoute>} />
         <Route path="creditos" element={<ClientRoute><ClienteMeusCreditosPage /></ClientRoute>} />
         <Route path="perfil" element={<ClientRoute><ClienteMeuPerfilPage /></ClientRoute>} />
       </Route>

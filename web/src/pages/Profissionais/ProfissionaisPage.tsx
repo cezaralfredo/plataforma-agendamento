@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { Plus, Users, ToggleLeft, ToggleRight, Clock, Loader2, Trash2, Link as LinkIcon, Copy, Check } from 'lucide-react';
+import { Plus, Users, ToggleLeft, ToggleRight, Clock, Loader2, Trash2, Link as LinkIcon, Copy, Check, ExternalLink, Scissors } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -16,9 +17,17 @@ interface Profissional {
   convites?: { id: string; usado: boolean; expiraEm: string }[];
 }
 
+interface Servico {
+  id: number;
+  nome: string;
+  categoria: string;
+  valor: number;
+  duracaoMinutos: number;
+  ativo: boolean;
+}
+
 type ProfissionalFormData = {
   nome: string;
-  especialidades: string;
   diasTrabalho: string[];
   horarioInicio: string;
   horarioFim: string;
@@ -34,21 +43,6 @@ const diasSemana = [
   { value: 'DOMINGO', label: 'Domingo' },
 ];
 
-const especialidadesDisponiveis = [
-  'Corte Masculino',
-  'Corte Feminino',
-  'Barba',
-  'Hidratação',
-  'Coloração',
-  'Manicure',
-  'Pedicure',
-  'Escova',
-  'Progressiva',
-  'Design de Sobrancelhas',
-  'Maquiagem',
-  'Depilação',
-];
-
 function ProfissionalModal({
   open,
   onClose,
@@ -58,10 +52,14 @@ function ProfissionalModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onSave: (data: ProfissionalFormData) => Promise<void>;
+  onSave: (data: ProfissionalFormData & { especialidades: string[] }) => Promise<void>;
   profissional?: Profissional | null;
   loading: boolean;
 }) {
+  const [servicos, setServicos] = useState<Servico[]>([]);
+  const [loadingServicos, setLoadingServicos] = useState(false);
+  const [especialidades, setEspecialidades] = useState<string[]>([]);
+
   const {
     register,
     handleSubmit,
@@ -71,14 +69,12 @@ function ProfissionalModal({
     defaultValues: profissional
       ? {
           nome: profissional.nome,
-          especialidades: profissional.especialidades.join(', '),
           diasTrabalho: profissional.diasTrabalho,
           horarioInicio: profissional.horarioInicio,
           horarioFim: profissional.horarioFim,
         }
       : {
           nome: '',
-          especialidades: '',
           diasTrabalho: [],
           horarioInicio: '08:00',
           horarioFim: '18:00',
@@ -87,18 +83,29 @@ function ProfissionalModal({
 
   useEffect(() => {
     if (open) {
+      setLoadingServicos(true);
+      api.get('/servicos').then(res => {
+        const ativos: Servico[] = res.data.filter((s: Servico) => s.ativo);
+        setServicos(ativos);
+        if (profissional) {
+          setEspecialidades(profissional.especialidades);
+        } else {
+          setEspecialidades([]);
+        }
+      }).catch(() => {
+        toast.error('Erro ao carregar serviços.');
+      }).finally(() => setLoadingServicos(false));
+
       reset(
         profissional
           ? {
               nome: profissional.nome,
-              especialidades: profissional.especialidades.join(', '),
               diasTrabalho: profissional.diasTrabalho,
               horarioInicio: profissional.horarioInicio,
               horarioFim: profissional.horarioFim,
             }
           : {
               nome: '',
-              especialidades: '',
               diasTrabalho: [],
               horarioInicio: '08:00',
               horarioFim: '18:00',
@@ -106,6 +113,22 @@ function ProfissionalModal({
       );
     }
   }, [open, profissional, reset]);
+
+  const toggleServico = (nome: string) => {
+    setEspecialidades(prev =>
+      prev.includes(nome) ? prev.filter(e => e !== nome) : [...prev, nome]
+    );
+  };
+
+  const onSubmit = (data: ProfissionalFormData) => {
+    onSave({ ...data, especialidades });
+  };
+
+  const servicosPorCategoria = servicos.reduce<Record<string, Servico[]>>((acc, s) => {
+    if (!acc[s.categoria]) acc[s.categoria] = [];
+    acc[s.categoria].push(s);
+    return acc;
+  }, {});
 
   if (!open) return null;
 
@@ -115,7 +138,7 @@ function ProfissionalModal({
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
           {profissional ? 'Editar Profissional' : 'Novo Profissional'}
         </h3>
-        <form onSubmit={handleSubmit(onSave)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
             <input
@@ -127,39 +150,56 @@ function ProfissionalModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Especialidades (separadas por vírgula)
-            </label>
-            <input
-              {...register('especialidades', { required: 'Informe ao menos uma especialidade' })}
-              className="input-field"
-              placeholder="Ex: Corte Masculino, Barba, Hidratação"
-            />
-            {errors.especialidades && (
-              <p className="text-red-500 text-xs mt-1">{errors.especialidades.message}</p>
-            )}
-            <div className="flex flex-wrap gap-1 mt-2">
-              {especialidadesDisponiveis.map((esp) => (
-                <button
-                  key={esp}
-                  type="button"
-                  onClick={() => {
-                    const field = document.getElementsByName('especialidades')[0] as HTMLInputElement;
-                    const current = field?.value || '';
-                    const items = current.split(',').map((s) => s.trim()).filter(Boolean);
-                    if (items.includes(esp)) {
-                      field.value = items.filter((s) => s !== esp).join(', ');
-                    } else {
-                      field.value = [...items, esp].join(', ');
-                    }
-                    field?.dispatchEvent(new Event('input', { bubbles: true }));
-                  }}
-                  className="text-xs px-2 py-1 rounded-full border border-gray-300 hover:border-primary-500 hover:text-primary-700 transition-colors"
-                >
-                  {esp}
-                </button>
-              ))}
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Serviços Prestados
+              </label>
+              <span className="text-xs text-gray-500">
+                {especialidades.length} de {servicos.length} selecionados
+              </span>
             </div>
+            {loadingServicos ? (
+              <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />)}</div>
+            ) : servicos.length === 0 ? (
+              <div className="text-center py-6 text-gray-400">
+                <Scissors size={24} className="mx-auto mb-1" />
+                <p className="text-sm">Nenhum serviço cadastrado.</p>
+              </div>
+            ) : (
+              Object.entries(servicosPorCategoria).map(([categoria, servicosCat]) => (
+                <div key={categoria} className="mb-3 last:mb-0">
+                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    {categoria === 'BARBEARIA' ? 'Barbearia' : categoria === 'SALAO' ? 'Salão' : categoria}
+                  </h4>
+                  <div className="flex flex-col gap-1.5">
+                    {servicosCat.map(servico => {
+                      const selecionado = especialidades.includes(servico.nome);
+                      return (
+                        <label
+                          key={servico.id}
+                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                            selecionado
+                              ? 'bg-primary-50/50 border-primary-300'
+                              : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selecionado}
+                            onChange={() => toggleServico(servico.nome)}
+                            className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800">{servico.nome}</p>
+                            <p className="text-xs text-gray-400">{servico.duracaoMinutos}min • R$ {servico.valor.toFixed(2)}</p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           <div>
@@ -210,6 +250,7 @@ function ProfissionalModal({
 
 export default function ProfissionaisPage() {
   const { isSuperAdmin } = useAuth();
+  const navigate = useNavigate();
   const [profissionais, setProfissionais] = useState<Profissional[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -237,15 +278,12 @@ export default function ProfissionaisPage() {
     fetchProfissionais();
   }, []);
 
-  const handleSave = async (data: ProfissionalFormData) => {
+  const handleSave = async (data: ProfissionalFormData & { especialidades: string[] }) => {
     setSaving(true);
     try {
       const payload = {
         nome: data.nome,
-        especialidades: data.especialidades
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        especialidades: data.especialidades,
         diasTrabalho: data.diasTrabalho,
         horarioInicio: data.horarioInicio,
         horarioFim: data.horarioFim,
@@ -303,8 +341,7 @@ export default function ProfissionaisPage() {
   };
 
   const openEdit = (prof: Profissional) => {
-    setEditingProf(prof);
-    setModalOpen(true);
+    navigate(`/profissionais/${prof.id}`);
   };
 
   const openNew = () => {

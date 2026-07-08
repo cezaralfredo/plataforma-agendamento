@@ -303,6 +303,90 @@ async function main() {
         duracaoMinutos: 40,
       },
     }),
+    prisma.servico.upsert({
+      where: { id: 11 },
+      update: { tenantId: tenant.id },
+      create: {
+        id: 11,
+        tenantId: tenant.id,
+        nome: 'Degradê',
+        categoria: CategoriaServico.BARBEARIA,
+        valor: 55.00,
+        duracaoMinutos: 40,
+      },
+    }),
+    prisma.servico.upsert({
+      where: { id: 12 },
+      update: { tenantId: tenant.id },
+      create: {
+        id: 12,
+        tenantId: tenant.id,
+        nome: 'Corte Degradê + Barba',
+        categoria: CategoriaServico.BARBEARIA,
+        valor: 80.00,
+        duracaoMinutos: 50,
+      },
+    }),
+    prisma.servico.upsert({
+      where: { id: 13 },
+      update: { tenantId: tenant.id },
+      create: {
+        id: 13,
+        tenantId: tenant.id,
+        nome: 'Sobrancelha',
+        categoria: CategoriaServico.BARBEARIA,
+        valor: 20.00,
+        duracaoMinutos: 15,
+      },
+    }),
+    prisma.servico.upsert({
+      where: { id: 14 },
+      update: { tenantId: tenant.id },
+      create: {
+        id: 14,
+        tenantId: tenant.id,
+        nome: 'Hot Towel',
+        categoria: CategoriaServico.BARBEARIA,
+        valor: 25.00,
+        duracaoMinutos: 15,
+      },
+    }),
+    prisma.servico.upsert({
+      where: { id: 15 },
+      update: { tenantId: tenant.id },
+      create: {
+        id: 15,
+        tenantId: tenant.id,
+        nome: 'Corte Infantil',
+        categoria: CategoriaServico.BARBEARIA,
+        valor: 40.00,
+        duracaoMinutos: 25,
+      },
+    }),
+    prisma.servico.upsert({
+      where: { id: 16 },
+      update: { tenantId: tenant.id },
+      create: {
+        id: 16,
+        tenantId: tenant.id,
+        nome: 'Pigmentação Capilar',
+        categoria: CategoriaServico.BARBEARIA,
+        valor: 80.00,
+        duracaoMinutos: 60,
+      },
+    }),
+    prisma.servico.upsert({
+      where: { id: 17 },
+      update: { tenantId: tenant.id },
+      create: {
+        id: 17,
+        tenantId: tenant.id,
+        nome: 'Barba Tradicional com Navalha',
+        categoria: CategoriaServico.BARBEARIA,
+        valor: 35.00,
+        duracaoMinutos: 25,
+      },
+    }),
   ]);
   console.log(`✅ ${servicos.length} serviços criados`);
 

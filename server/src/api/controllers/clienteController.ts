@@ -201,6 +201,9 @@ router.get('/:id/agendamentos', verifyToken, async (req: Request, res: Response,
           servico: {
             select: { id: true, nome: true, valor: true, categoria: true },
           },
+          servicosAgendamento: {
+            include: { servico: { select: { id: true, nome: true, valor: true, categoria: true } } },
+          },
           profissional: {
             select: { id: true, nome: true },
           },
@@ -218,6 +221,57 @@ router.get('/:id/agendamentos', verifyToken, async (req: Request, res: Response,
       page,
       totalPages: Math.ceil(total / limit),
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/:id', verifyToken, requireSuperAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const tenantId = getTenantId(req);
+
+    const cliente = await prisma.cliente.findFirst({
+      where: { id: req.params.id, tenantId },
+    });
+
+    if (!cliente) {
+      res.status(404).json({ erro: 'Cliente não encontrado.' });
+      return;
+    }
+
+    const creditoPendente = await prisma.credito.findFirst({
+      where: { clienteId: req.params.id, utilizado: false },
+    });
+
+    if (creditoPendente) {
+      const pagamentoConfirmado = await prisma.pagamento.findFirst({
+        where: {
+          agendamento: { clienteId: req.params.id },
+          status: { in: ['PAGO', 'REEMBOLSADO'] },
+        },
+      });
+
+      if (pagamentoConfirmado) {
+        res.status(400).json({ erro: 'Cliente possui créditos pendentes. Não é possível excluir.' });
+        return;
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.sessaoBot.deleteMany({ where: { clienteId: req.params.id } });
+      await tx.credito.deleteMany({ where: { clienteId: req.params.id } });
+      await tx.pagamento.deleteMany({
+        where: { agendamento: { clienteId: req.params.id } },
+      });
+      await tx.$executeRawUnsafe(
+        'DELETE FROM agendamentos_servicos WHERE "agendamentoId" IN (SELECT id FROM agendamentos WHERE "clienteId" = $1)',
+        req.params.id,
+      );
+      await tx.agendamento.deleteMany({ where: { clienteId: req.params.id } });
+      await tx.cliente.delete({ where: { id: req.params.id } });
+    });
+
+    res.json({ mensagem: 'Cliente excluído permanentemente.' });
   } catch (error) {
     next(error);
   }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { Plus, Scissors, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
+import { Plus, Scissors, ToggleLeft, ToggleRight, Loader2, ExternalLink } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -12,6 +13,12 @@ interface Servico {
   valor: number;
   duracaoMinutos: number;
   ativo: boolean;
+}
+
+interface Profissional {
+  id: string;
+  nome: string;
+  especialidades: string[];
 }
 
 type ServicoFormData = {
@@ -138,7 +145,9 @@ function ServicoModal({
 
 export default function ServicosPage() {
   const { isSuperAdmin } = useAuth();
+  const navigate = useNavigate();
   const [servicos, setServicos] = useState<Servico[]>([]);
+  const [profissionais, setProfissionais] = useState<Profissional[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -151,10 +160,14 @@ export default function ServicosPage() {
     try {
       const params: Record<string, string> = {};
       if (filtroCategoria) params.categoria = filtroCategoria;
-      const res = await api.get('/servicos', { params });
-      setServicos(res.data);
+      const [servRes, profRes] = await Promise.all([
+        api.get('/servicos', { params }),
+        api.get('/profissionais', { params: { ativos: 'false' } }),
+      ]);
+      setServicos(servRes.data);
+      setProfissionais(profRes.data);
     } catch (err) {
-      toast.error('Erro ao carregar serviços.');
+      toast.error('Erro ao carregar dados.');
     } finally {
       setLoading(false);
     }
@@ -163,6 +176,9 @@ export default function ServicosPage() {
   useEffect(() => {
     fetchServicos();
   }, [filtroCategoria]);
+
+  const profissionaisPorServico = (nomeServico: string) =>
+    profissionais.filter(p => p.especialidades.includes(nomeServico));
 
   const handleSave = async (data: ServicoFormData) => {
     setSaving(true);
@@ -266,6 +282,7 @@ export default function ServicosPage() {
                   <th className="pb-3 font-medium">Valor</th>
                   <th className="pb-3 font-medium">Duração</th>
                   <th className="pb-3 font-medium">Ativo</th>
+                  <th className="pb-3 font-medium">Profissionais</th>
                   {isSuperAdmin && <th className="pb-3 font-medium">Ações</th>}
                 </tr>
               </thead>
@@ -316,6 +333,27 @@ export default function ServicosPage() {
                           }`}
                         />
                       )}
+                    </td>
+                    <td className="py-3">
+                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                        {(() => {
+                          const profs = profissionaisPorServico(servico.nome);
+                          return profs.length === 0 ? (
+                            <span className="text-xs text-gray-400">—</span>
+                          ) : (
+                            profs.map(p => (
+                              <button
+                                key={p.id}
+                                onClick={() => navigate(`/profissionais/${p.id}`)}
+                                className="inline-flex items-center gap-1 text-xs bg-primary-50 text-primary-700 hover:bg-primary-100 px-2 py-0.5 rounded-full transition-colors"
+                              >
+                                {p.nome}
+                                <ExternalLink size={10} />
+                              </button>
+                            ))
+                          );
+                        })()}
+                      </div>
                     </td>
                     {isSuperAdmin && (
                       <td className="py-3">

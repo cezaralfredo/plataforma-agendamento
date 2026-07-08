@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   LayoutDashboard, CalendarDays, Users, Scissors, UserCircle, DollarSign, Settings, Building2,
-  LogOut, Menu, X, BarChart3, FileText, Calendar, User
+  LogOut, Menu, X, BarChart3, FileText, Calendar, User, Contact
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -21,6 +21,7 @@ const profissionalNavItems = [
   { to: '/profissional/agendamentos', icon: CalendarDays, label: 'Meus Agendamentos' },
   { to: '/profissional/perfil', icon: User, label: 'Meu Perfil' },
   { to: '/profissional/agenda', icon: Calendar, label: 'Minha Agenda' },
+  { to: '/profissional/clientes', icon: Contact, label: 'Meus Clientes' },
   { to: '/configuracoes', icon: Settings, label: 'Configurações' },
 ];
 

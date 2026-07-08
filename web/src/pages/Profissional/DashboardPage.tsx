@@ -84,7 +84,7 @@ export default function ProfissionalDashboardPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{ag.cliente.nome}</p>
-                    <p className="text-xs text-gray-500">{ag.servico.nome}</p>
+                    <p className="text-xs text-gray-500">{ag.servicosAgendamento?.map(sa => sa.servico.nome).join(', ') || ag.servico.nome}</p>
                   </div>
                 </div>
                 <div className="text-right shrink-0 ml-4">
@@ -92,7 +92,7 @@ export default function ProfissionalDashboardPage() {
                     {format(parseISO(ag.dataHora), "HH:mm")}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {formatCurrency(ag.servico.valor)}
+                    {formatCurrency(ag.valorPago ?? ag.servicosAgendamento?.reduce((s: number, sa) => s + (sa.servico?.valor || 0), 0) ?? ag.servico?.valor ?? 0)}
                   </p>
                 </div>
               </div>

@@ -199,6 +199,9 @@ router.get('/proximos-agendamentos', verifyToken, requireSuperAdmin, async (req:
         servico: {
           select: { id: true, nome: true, valor: true, duracaoMinutos: true },
         },
+        servicosAgendamento: {
+          include: { servico: { select: { id: true, nome: true, valor: true, duracaoMinutos: true } } },
+        },
         pagamento: {
           select: { status: true },
         },

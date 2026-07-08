@@ -13,6 +13,7 @@ interface DashboardData {
     dataHora: string;
     status: string;
     servico: { nome: string; valor: number };
+    servicosAgendamento?: Array<{ servico: { id: number; nome: string; valor: number; duracaoMinutos: number } }>;
     profissional: { nome: string };
   }>;
   totalAgendamentos: number;
@@ -99,17 +100,20 @@ export default function ClienteDashboardPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {data?.proximosAgendamentos.map((ag) => (
+              {data?.proximosAgendamentos.map((ag) => (
               <div key={ag.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
-                  <p className="text-sm font-medium text-gray-800">{ag.servico.nome}</p>
+                  <p className="text-sm font-medium text-gray-800">
+                    {ag.servicosAgendamento && ag.servicosAgendamento.length > 1
+                      ? ag.servicosAgendamento.map(sa => sa.servico.nome).join(', ')
+                      : ag.servico.nome}
+                  </p>
                   <p className="text-xs text-gray-500">{ag.profissional.nome}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold text-gray-800">
                     {format(parseISO(ag.dataHora), "dd/MM HH:mm")}
                   </p>
-                  <p className="text-xs text-gray-500">{formatCurrency(ag.servico.valor)}</p>
                 </div>
               </div>
             ))}

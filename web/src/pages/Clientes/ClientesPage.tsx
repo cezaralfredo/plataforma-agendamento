@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Phone, Mail, CreditCard, CalendarDays, ChevronDown, ChevronUp, UserCircle, Edit2 } from 'lucide-react';
+import { Search, Plus, Phone, Mail, CreditCard, CalendarDays, ChevronDown, ChevronUp, UserCircle, Edit2, Trash2, Loader2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useClientes, useClienteDetalhes } from '../../hooks/useClientes';
 import StatusBadge from '../../components/ui/StatusBadge';
@@ -7,6 +7,7 @@ import ClienteFormModal from '../../components/clientes/ClienteFormModal';
 import { CardSkeleton } from '../../components/ui/LoadingSkeleton';
 import EmptyState from '../../components/ui/EmptyState';
 import { useAuth } from '../../contexts/AuthContext';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 function formatPhone(phone: string): string {
@@ -32,6 +33,8 @@ export default function ClientesPage() {
     telefone: string;
     email?: string;
   } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; nome: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
@@ -172,6 +175,16 @@ export default function ClientesPage() {
                     >
                       <Edit2 size={16} />
                     </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmDelete({ id: cliente.id, nome: cliente.nome });
+                      }}
+                      className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      title="Excluir cliente"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                     {isExpanded ? (
                       <ChevronUp size={18} className="text-gray-400" />
                     ) : (
@@ -310,6 +323,47 @@ export default function ClientesPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Excluir Cliente</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Tem certeza que deseja excluir permanentemente <strong>{confirmDelete.nome}</strong>?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="btn-secondary"
+                disabled={deleting}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  setDeleting(true);
+                  try {
+                    await api.delete(`/clientes/${confirmDelete.id}`);
+                    toast.success('Cliente excluído permanentemente.');
+                    setConfirmDelete(null);
+                    refetch();
+                  } catch (err: any) {
+                    toast.error(err?.response?.data?.erro || err?.response?.data?.error || err?.message || 'Erro ao excluir cliente.');
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+                className="btn-danger flex items-center gap-2"
+                disabled={deleting}
+              >
+                {deleting && <Loader2 size={16} className="animate-spin" />}
+                {deleting ? 'Excluindo...' : 'Excluir'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

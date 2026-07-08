@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { Scissors, Users, Clock, CheckCircle, Loader2, ArrowLeft } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Scissors, Users, Clock, CheckCircle, Loader2, ArrowLeft, Check, CreditCard } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
@@ -8,15 +8,20 @@ import { format, parseISO } from 'date-fns';
 interface Servico { id: number; nome: string; valor: number; duracaoMinutos: number }
 interface Profissional { id: string; nome: string; especialidades: string[]; diasTrabalho: number[] }
 
+function formatCurrency(value: number) {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 export default function NovoAgendamentoPage() {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
 
   const [servicos, setServicos] = useState<Servico[]>([]);
   const [profissionais, setProfissionais] = useState<Profissional[]>([]);
   const [horarios, setHorarios] = useState<string[]>([]);
   const [loadingServicos, setLoadingServicos] = useState(true);
 
-  const [servicoId, setServicoId] = useState<number | null>(null);
+  const [servicoIds, setServicoIds] = useState<number[]>([]);
   const [profissionalId, setProfissionalId] = useState<string | null>(null);
   const [data, setData] = useState('');
   const [horario, setHorario] = useState('');
@@ -33,36 +38,52 @@ export default function NovoAgendamentoPage() {
   }, [slug]);
 
   useEffect(() => {
-    if (!servicoId || !slug) return;
-    api.get('/cliente-portal/profissionais', { params: { slug, servicoId } })
+    if (!slug || servicoIds.length === 0) return;
+    api.get('/cliente-portal/profissionais', { params: { slug, servicoIds: servicoIds.join(',') } })
       .then(res => setProfissionais(res.data))
       .catch(() => {});
-  }, [servicoId, slug]);
+  }, [servicoIds, slug]);
+
+  const servicoIdsStr = useMemo(() => servicoIds.join(','), [servicoIds]);
 
   useEffect(() => {
-    if (!slug || !profissionalId || !servicoId || !data) { setHorarios([]); return; }
-    api.get('/cliente-portal/horarios', { params: { slug, profissionalId, servicoId, data } })
+    if (!slug || !profissionalId || servicoIds.length === 0 || !data) { setHorarios([]); return; }
+    api.get('/cliente-portal/horarios', { params: { slug, profissionalId, servicoIds: servicoIdsStr, data } })
       .then(res => setHorarios(res.data.horariosDisponiveis || []))
       .catch(() => {});
-  }, [slug, profissionalId, servicoId, data]);
+  }, [slug, profissionalId, servicoIdsStr, data]);
 
-  const servicoSelecionado = servicos.find(s => s.id === servicoId);
+  const servicosSelecionados = servicos.filter(s => servicoIds.includes(s.id));
   const profissionalSelecionado = profissionais.find(p => p.id === profissionalId);
 
-  const totalSteps = 4;
+  const duracaoTotal = useMemo(
+    () => servicosSelecionados.reduce((sum, s) => sum + s.duracaoMinutos, 0),
+    [servicosSelecionados]
+  );
+  const valorTotal = useMemo(
+    () => servicosSelecionados.reduce((sum, s) => sum + s.valor, 0),
+    [servicosSelecionados]
+  );
+
+  const toggleServico = (id: number) => {
+    setServicoIds(prev =>
+      prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id]
+    );
+  };
 
   const handleConfirmar = async () => {
-    if (!servicoId || !profissionalId || !data || !horario) return;
+    if (servicoIds.length === 0 || !profissionalId || !data || !horario) return;
     setSubmitting(true);
     try {
       const dataHora = `${data}T${horario}:00`;
-      await api.post('/cliente-portal/agendamentos', {
-        servicoId,
+      const res = await api.post('/cliente-portal/agendamentos', {
+        servicoIds,
         profissionalId,
         dataHora,
       });
-      setSuccess(true);
-      toast.success('Agendamento confirmado!');
+      const agendamento = res.data;
+      toast.success('Agendamento criado!');
+      navigate(`/cliente/${slug}/pagamento/${agendamento.id}`, { replace: true });
     } catch (err: any) {
       toast.error(err?.response?.data?.error || 'Erro ao agendar.');
     } finally {
@@ -75,15 +96,22 @@ export default function NovoAgendamentoPage() {
       <div className="max-w-lg mx-auto text-center py-12">
         <CheckCircle size={64} className="mx-auto mb-4 text-green-500" />
         <h2 className="text-2xl font-bold text-gray-800 mb-2">Agendamento Confirmado!</h2>
+        <div className="text-gray-500 mb-2">
+          {servicosSelecionados.map(s => (
+            <p key={s.id}>{s.nome}</p>
+          ))}
+        </div>
         <p className="text-gray-500 mb-6">
-          {servicoSelecionado?.nome} com {profissionalSelecionado?.nome} em {format(parseISO(`${data}T${horario}:00`), "dd/MM/yyyy 'às' HH:mm")}
+          com {profissionalSelecionado?.nome} em {format(parseISO(`${data}T${horario}:00`), "dd/MM/yyyy 'às' HH:mm")}
         </p>
-        <button onClick={() => { setSuccess(false); setStep(1); setServicoId(null); setProfissionalId(null); setData(''); setHorario(''); }} className="btn-primary">
+        <button onClick={() => { setSuccess(false); setStep(1); setServicoIds([]); setProfissionalId(null); setData(''); setHorario(''); }} className="btn-primary">
           Novo Agendamento
         </button>
       </div>
     );
   }
+
+  const totalSteps = 4;
 
   return (
     <div className="max-w-lg mx-auto space-y-6">
@@ -103,23 +131,46 @@ export default function NovoAgendamentoPage() {
           <div className="space-y-3">
             <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
               <Scissors size={20} className="text-primary-600" />
-              Escolha o Serviço
+              Escolha os Serviços
             </h2>
+            {servicoIds.length > 0 && (
+              <p className="text-sm text-primary-600 font-medium mb-2">
+                {servicoIds.length} selecionado{servicoIds.length !== 1 ? 's' : ''} • {formatCurrency(valorTotal)} • {duracaoTotal}min
+              </p>
+            )}
             {loadingServicos ? (
               <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-14 bg-gray-100 rounded-lg animate-pulse" />)}</div>
             ) : (
-              servicos.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => { setServicoId(s.id); setStep(2); }}
-                  className={`w-full text-left p-4 rounded-lg border transition-colors ${
-                    servicoId === s.id ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <p className="font-medium text-gray-800">{s.nome}</p>
-                  <p className="text-sm text-gray-500">{s.duracaoMinutos}min • R$ {s.valor.toFixed(2)}</p>
-                </button>
-              ))
+              servicos.map(s => {
+                const selected = servicoIds.includes(s.id);
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => toggleServico(s.id)}
+                    className={`w-full text-left p-4 rounded-lg border transition-colors flex items-center gap-3 ${
+                      selected ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                      selected ? 'bg-primary-600 border-primary-600' : 'border-gray-300'
+                    }`}>
+                      {selected && <Check size={14} className="text-white" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-gray-800">{s.nome}</p>
+                      <p className="text-sm text-gray-500">{s.duracaoMinutos}min • {formatCurrency(s.valor)}</p>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+            {servicoIds.length > 0 && (
+              <button
+                onClick={() => setStep(2)}
+                className="btn-primary w-full mt-2"
+              >
+                Continuar ({servicoIds.length} serviço{servicoIds.length !== 1 ? 's' : ''})
+              </button>
             )}
           </div>
         )}
@@ -134,7 +185,7 @@ export default function NovoAgendamentoPage() {
               Escolha o Profissional
             </h2>
             {profissionais.length === 0 ? (
-              <p className="text-gray-400 text-sm">Nenhum profissional disponível para este serviço.</p>
+              <p className="text-gray-400 text-sm">Nenhum profissional disponível.</p>
             ) : (
               profissionais.map(p => (
                 <button
@@ -204,9 +255,13 @@ export default function NovoAgendamentoPage() {
 
             {horario && (
               <div className="mt-6 p-4 bg-gray-50 rounded-lg space-y-2">
-                <p className="text-sm text-gray-600">
-                  <strong>Serviço:</strong> {servicoSelecionado?.nome}
-                </p>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 mb-1">Serviços</p>
+                  {servicosSelecionados.map(s => (
+                    <p key={s.id} className="text-sm text-gray-700">• {s.nome} ({formatCurrency(s.valor)})</p>
+                  ))}
+                  <p className="text-sm text-gray-800 font-medium mt-1">Total: {formatCurrency(valorTotal)} • {duracaoTotal}min</p>
+                </div>
                 <p className="text-sm text-gray-600">
                   <strong>Profissional:</strong> {profissionalSelecionado?.nome}
                 </p>
@@ -215,9 +270,6 @@ export default function NovoAgendamentoPage() {
                 </p>
                 <p className="text-sm text-gray-600">
                   <strong>Horário:</strong> {horario}
-                </p>
-                <p className="text-sm text-gray-600">
-                  <strong>Valor:</strong> R$ {servicoSelecionado?.valor.toFixed(2)}
                 </p>
                 <button
                   onClick={handleConfirmar}

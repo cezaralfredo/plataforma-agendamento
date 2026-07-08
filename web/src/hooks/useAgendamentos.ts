@@ -28,12 +28,17 @@ export interface Pagamento {
   status: string;
 }
 
+export interface AgendamentoServico {
+  servico: Servico;
+}
+
 export interface Agendamento {
   id: string;
   codigo: string;
   cliente: Cliente;
   profissional: Profissional;
   servico: Servico;
+  servicosAgendamento: AgendamentoServico[];
   pagamento?: Pagamento;
   data: string;
   hora: string;

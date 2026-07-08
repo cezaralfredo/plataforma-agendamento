@@ -14,6 +14,7 @@ interface Agendamento {
   dataHora: string;
   status: string;
   servico: { nome: string; valor: number };
+  servicosAgendamento?: Array<{ servico: { id: number; nome: string; valor: number } }>;
   profissional: { nome: string };
 }
 
@@ -89,7 +90,11 @@ export default function MeusAgendamentosPage() {
               <tbody>
                 {agendamentos.map((ag) => (
                   <tr key={ag.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="p-4 font-medium text-gray-800">{ag.servico.nome}</td>
+                    <td className="p-4 font-medium text-gray-800">
+                      {ag.servicosAgendamento && ag.servicosAgendamento.length > 1
+                        ? ag.servicosAgendamento.map(sa => sa.servico.nome).join(', ')
+                        : ag.servico.nome}
+                    </td>
                     <td className="p-4 text-gray-600">{ag.profissional.nome}</td>
                     <td className="p-4 text-gray-600">{format(parseISO(ag.dataHora), "dd/MM/yyyy", { locale: ptBR })}</td>
                     <td className="p-4 text-gray-600">{format(parseISO(ag.dataHora), "HH:mm")}</td>

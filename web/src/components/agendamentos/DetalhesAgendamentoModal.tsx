@@ -28,6 +28,7 @@ interface AgendamentoDetalhado {
   cliente: { id: string; nome: string; telefone?: string; email?: string };
   profissional: { id: string; nome: string };
   servico: ServicoDetalhado;
+  servicosAgendamento: { servico: ServicoDetalhado }[];
   pagamento?: PagamentoDetalhado;
   data: string;
   hora: string;
@@ -164,16 +165,20 @@ export default function DetalhesAgendamentoModal({ open, onClose, agendamentoId 
               <Scissors size={14} />
               Serviço
             </h4>
-            <p className="text-sm font-medium text-gray-800">{agendamento.servico?.nome}</p>
-            {agendamento.servico && (
-              <div className="flex gap-4 mt-1 text-sm text-gray-500">
-                <span>
-                  Categoria: {agendamento.servico.categoria === 'SALAO' ? 'Salão' : agendamento.servico.categoria === 'BARBEARIA' ? 'Barbearia' : agendamento.servico.categoria}
-                </span>
-                {agendamento.servico.duracaoMinutos && (
-                  <span>Duração: {agendamento.servico.duracaoMinutos} min</span>
-                )}
+            {agendamento.servicosAgendamento?.length > 0 ? (
+              <div className="space-y-2">
+                {agendamento.servicosAgendamento.map((sa, idx) => (
+                  <div key={idx} className="text-sm">
+                    <p className="font-medium text-gray-800">{sa.servico.nome}</p>
+                    <div className="flex gap-4 text-gray-500">
+                      <span>Categoria: {sa.servico.categoria === 'SALAO' ? 'Salão' : sa.servico.categoria === 'BARBEARIA' ? 'Barbearia' : sa.servico.categoria}</span>
+                      {sa.servico.duracaoMinutos && <span>Duração: {sa.servico.duracaoMinutos} min</span>}
+                    </div>
+                  </div>
+                ))}
               </div>
+            ) : (
+              <p className="text-sm font-medium text-gray-800">{agendamento.servico?.nome}</p>
             )}
             <p className="text-sm font-semibold text-gray-800 mt-1">
               Valor: {formatCurrency(agendamento.valor)}

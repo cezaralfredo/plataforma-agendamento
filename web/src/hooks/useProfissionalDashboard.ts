@@ -5,7 +5,9 @@ export interface ProximoAgendamento {
   id: string;
   cliente: { id: string; nome: string; telefone?: string };
   servico: { id: string; nome: string; valor: number; duracaoMinutos?: number };
+  servicosAgendamento: { servico: { id: string; nome: string; valor: number; duracaoMinutos?: number } }[];
   dataHora: string;
+  valorPago?: number;
   status: string;
 }
 

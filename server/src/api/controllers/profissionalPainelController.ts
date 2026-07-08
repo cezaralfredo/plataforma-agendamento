@@ -76,6 +76,9 @@ router.get('/dashboard', verifyToken, async (req: Request, res: Response, next: 
         include: {
           cliente: { select: { id: true, nome: true, telefone: true } },
           servico: { select: { id: true, nome: true, valor: true, duracaoMinutos: true } },
+          servicosAgendamento: {
+            include: { servico: { select: { id: true, nome: true, valor: true, duracaoMinutos: true } } },
+          },
         },
       }),
     ]);
@@ -280,6 +283,48 @@ router.delete('/bloqueios/:id', verifyToken, async (req: Request, res: Response,
   }
 });
 
+router.get('/clientes', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const profissionalId = req.usuario?.profissionalId;
+    const tenantId = req.usuario?.tenantId;
+
+    if (!profissionalId || !tenantId) {
+      res.status(400).json({ error: 'Profissional não vinculado ao usuário' });
+      return;
+    }
+
+    const clientes = await prisma.cliente.findMany({
+      where: {
+        tenantId,
+        agendamentos: { some: { profissionalId } },
+      },
+      include: {
+        _count: { select: { agendamentos: { where: { profissionalId } } } },
+        agendamentos: {
+          where: { profissionalId },
+          orderBy: { dataHora: 'desc' },
+          take: 1,
+          select: { dataHora: true, status: true, servico: { select: { nome: true } } },
+        },
+      },
+      orderBy: { nome: 'asc' },
+    });
+
+    const result = clientes.map((c) => ({
+      id: c.id,
+      nome: c.nome,
+      telefone: c.telefone,
+      email: c.email,
+      totalAgendamentos: c._count.agendamentos,
+      ultimoAgendamento: c.agendamentos[0] || null,
+    }));
+
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/colegas', verifyToken, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const profissionalId = req.usuario?.profissionalId;
@@ -347,6 +392,9 @@ router.put('/agendamentos/:id/delegar', verifyToken, async (req: Request, res: R
       include: {
         cliente: { select: { nome: true } },
         servico: { select: { nome: true } },
+        servicosAgendamento: {
+          include: { servico: { select: { nome: true, valor: true } } },
+        },
       },
     });
 

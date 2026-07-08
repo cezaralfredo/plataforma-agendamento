@@ -87,6 +87,9 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
           servico: {
             select: { id: true, nome: true, valor: true, duracaoMinutos: true, categoria: true },
           },
+          servicosAgendamento: {
+            include: { servico: { select: { id: true, nome: true, valor: true, duracaoMinutos: true, categoria: true } } },
+          },
           pagamento: {
             select: { status: true, txidPix: true, valor: true },
           },
@@ -131,6 +134,9 @@ router.get('/hoje', verifyToken, async (req: Request, res: Response, next: NextF
         servico: {
           select: { id: true, nome: true, valor: true, duracaoMinutos: true },
         },
+        servicosAgendamento: {
+          include: { servico: { select: { id: true, nome: true, valor: true, duracaoMinutos: true } } },
+        },
         pagamento: {
           select: { status: true },
         },
@@ -173,6 +179,9 @@ router.get('/proximos', verifyToken, async (req: Request, res: Response, next: N
         servico: {
           select: { id: true, nome: true, valor: true, duracaoMinutos: true },
         },
+        servicosAgendamento: {
+          include: { servico: { select: { id: true, nome: true, valor: true, duracaoMinutos: true } } },
+        },
         pagamento: {
           select: { status: true },
         },
@@ -201,6 +210,9 @@ router.get('/:codigoUnico/codigo', verifyToken, async (req: Request, res: Respon
         },
         servico: {
           select: { id: true, nome: true, valor: true, duracaoMinutos: true, categoria: true },
+        },
+        servicosAgendamento: {
+          include: { servico: { select: { id: true, nome: true, valor: true, duracaoMinutos: true, categoria: true } } },
         },
         pagamento: {
           select: { status: true, txidPix: true, valor: true },
@@ -235,6 +247,9 @@ router.get('/:id', verifyToken, async (req: Request, res: Response, next: NextFu
         },
         servico: {
           select: { id: true, nome: true, valor: true, duracaoMinutos: true, categoria: true },
+        },
+        servicosAgendamento: {
+          include: { servico: { select: { id: true, nome: true, valor: true, duracaoMinutos: true, categoria: true } } },
         },
         pagamento: {
           select: { id: true, status: true, txidPix: true, valor: true, qrCode: true, copiaECola: true },
@@ -368,6 +383,9 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
         servico: {
           select: { id: true, nome: true, valor: true, duracaoMinutos: true },
         },
+        servicosAgendamento: {
+          include: { servico: { select: { id: true, nome: true, valor: true, duracaoMinutos: true } } },
+        },
       },
     });
 
@@ -477,6 +495,9 @@ router.post('/:id/confirmar', verifyToken, async (req: Request, res: Response, n
         servico: {
           select: { id: true, nome: true, valor: true },
         },
+        servicosAgendamento: {
+          include: { servico: { select: { id: true, nome: true, valor: true } } },
+        },
       },
     });
 
@@ -517,6 +538,9 @@ router.post('/:id/concluir', verifyToken, async (req: Request, res: Response, ne
         },
         servico: {
           select: { id: true, nome: true, valor: true },
+        },
+        servicosAgendamento: {
+          include: { servico: { select: { id: true, nome: true, valor: true } } },
         },
       },
     });

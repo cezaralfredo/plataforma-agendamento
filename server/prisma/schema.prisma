@@ -83,6 +83,7 @@ model Tenant {
   assinatura    Assinatura?
   faturas       Fatura[]
   atividades    AtividadeTenant[]
+  agendamentosServicos AgendamentoServico[]
 
   @@map("tenants")
 }
@@ -178,6 +179,7 @@ model Servico {
 
   tenant      Tenant       @relation(fields: [tenantId], references: [id])
   agendamentos Agendamento[]
+  agendamentosServicos AgendamentoServico[]
 
   @@index([tenantId])
   @@map("servicos")
@@ -201,11 +203,30 @@ model Agendamento {
   cliente     Cliente      @relation(fields: [clienteId], references: [id])
   profissional Profissional @relation(fields: [profissionalId], references: [id])
   servico     Servico      @relation(fields: [servicoId], references: [id])
+  servicosAgendamento AgendamentoServico[]
   pagamento   Pagamento?
 
   @@index([tenantId])
   @@index([tenantId, dataHora])
   @@map("agendamentos")
+}
+
+model AgendamentoServico {
+  id           String     @id @default(uuid())
+  tenantId     String
+  agendamentoId String
+  servicoId    Int
+  valor        Float      @default(0)
+  criadoEm     DateTime   @default(now())
+
+  agendamento  Agendamento @relation(fields: [agendamentoId], references: [id])
+  servico      Servico     @relation(fields: [servicoId], references: [id])
+  tenant       Tenant      @relation(fields: [tenantId], references: [id])
+
+  @@unique([agendamentoId, servicoId])
+  @@index([agendamentoId])
+  @@index([tenantId])
+  @@map("agendamentos_servicos")
 }
 
 model Pagamento {

@@ -213,24 +213,26 @@ router.delete('/:id', verifyToken, requireSuperAdmin, async (req: Request, res: 
       return;
     }
 
-    const agendamentosFuturos = await prisma.agendamento.findFirst({
-      where: {
-        tenantId,
-        profissionalId: req.params.id,
-        dataHora: { gte: new Date() },
-        status: { in: ['PENDENTE', 'CONFIRMADO'] },
-      },
-    });
-
-    if (agendamentosFuturos) {
-      res.status(400).json({
-        erro: 'Profissional possui agendamentos futuros. Remova-os antes de excluir.',
-      });
-      return;
-    }
-
     await prisma.$transaction([
-      prisma.bloqueioAgenda.deleteMany({ where: { profissionalId: req.params.id } }),
+      prisma.pagamento.deleteMany({
+        where: { agendamento: { profissionalId: req.params.id } },
+      }),
+      prisma.agendamentoServico.deleteMany({
+        where: { agendamento: { profissionalId: req.params.id } },
+      }),
+      prisma.agendamento.deleteMany({
+        where: { profissionalId: req.params.id },
+      }),
+      prisma.conviteProfissional.deleteMany({
+        where: { profissionalId: req.params.id },
+      }),
+      prisma.bloqueioAgenda.deleteMany({
+        where: { profissionalId: req.params.id },
+      }),
+      prisma.usuario.updateMany({
+        where: { profissionalId: req.params.id },
+        data: { profissionalId: null },
+      }),
       prisma.profissional.delete({ where: { id: req.params.id } }),
     ]);
 
