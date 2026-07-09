@@ -29,9 +29,10 @@ router.get('/', verifyToken, requireSuperAdmin, async (req: Request, res: Respon
     const where: any = { tenantId };
 
     if (search) {
+      const searchStr = String(search).substring(0, 100).replace(/[<>]/g, '');
       where.OR = [
-        { nome: { contains: search, mode: 'insensitive' } },
-        { telefone: { contains: search } },
+        { nome: { contains: searchStr, mode: 'insensitive' } },
+        { telefone: { contains: searchStr } },
       ];
     }
 

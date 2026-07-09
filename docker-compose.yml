@@ -105,7 +105,7 @@ services:
     environment:
       DATABASE_URL: postgresql://agendamento:${POSTGRES_PASSWORD:-agendamento123}@postgres:5432/plataforma_agendamento
       REDIS_URL: redis://:${REDIS_PASSWORD:-}@redis:6379
-      JWT_SECRET: ${JWT_SECRET:-jwt-secret-plataforma-agendamento-2024}
+      JWT_SECRET: ${JWT_SECRET}
       NODE_ENV: ${NODE_ENV:-production}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
       EVOLUTION_API_URL: http://evolution:8080

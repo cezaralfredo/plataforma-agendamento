@@ -5,6 +5,11 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import { config } from './config';
 import { errorHandler } from './api/middleware/errorHandler';
+import {
+  validateEvolutionWebhook,
+  validateMetaWebhook,
+  validateTelegramWebhook,
+} from './api/middleware/webhookAuth';
 import apiRouter from './api/routes';
 import {
   processarMensagemEvolution,
@@ -14,21 +19,32 @@ import {
 
 const app = express();
 
-const cspDirectives = {
-  defaultSrc: ["'self'"],
-  scriptSrc: ["'self'", "'unsafe-inline'"],
-  styleSrc: ["'self'", "'unsafe-inline'"],
-  imgSrc: ["'self'", "data:", "blob:"],
-  connectSrc: ["'self'"],
-  fontSrc: ["'self'"],
-  objectSrc: ["'none'"],
-  frameAncestors: ["'none'"],
-  upgradeInsecureRequests: [],
-};
-
 app.use(helmet({
-  contentSecurityPolicy: config.nodeEnv === 'production' ? { directives: cspDirectives } : false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: [],
+      formAction: ["'self'"],
+      baseUri: ["'self'"],
+    },
+  },
   crossOriginEmbedderPolicy: false,
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  xFrameOptions: { action: 'deny' },
+  noSniff: true,
+  xssFilter: true,
 }));
 
 app.use(cors({
@@ -36,8 +52,15 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+function parseRawBody(req: express.Request, _res: express.Response, buf: Buffer): void {
+  (req as any).rawBody = buf.toString();
+}
+
+app.use('/webhook', express.json({ verify: parseRawBody, limit: '100kb' }));
+app.use('/api/pagamentos/webhook', express.json({ verify: parseRawBody, limit: '100kb' }));
+
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 if (config.nodeEnv === 'development') {
   app.use(morgan('dev'));
@@ -68,6 +91,13 @@ const signupLimiter = rateLimit({
 });
 app.use('/api/tenants/signup', signupLimiter);
 
+const clienteAcessoLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Muitas tentativas. Tente novamente mais tarde.' },
+});
+app.use('/api/cliente-portal/acesso', clienteAcessoLimiter);
+
 const webhookLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 60,
@@ -78,14 +108,14 @@ app.use('/webhook', webhookLimiter);
 
 app.use('/api', apiRouter);
 
-app.use('/webhook/evolution', processarMensagemEvolution);
-app.use('/webhook/evolution/:tenantSlug', processarMensagemEvolution);
+app.use('/webhook/evolution', validateEvolutionWebhook, processarMensagemEvolution);
+app.use('/webhook/evolution/:tenantSlug', validateEvolutionWebhook, processarMensagemEvolution);
 
-app.use('/webhook/meta', processarMensagemMeta);
-app.use('/webhook/meta/:tenantSlug', processarMensagemMeta);
+app.use('/webhook/meta', validateMetaWebhook, processarMensagemMeta);
+app.use('/webhook/meta/:tenantSlug', validateMetaWebhook, processarMensagemMeta);
 
-app.use('/webhook/telegram', processarMensagemTelegram);
-app.use('/webhook/telegram/:tenantSlug', processarMensagemTelegram);
+app.use('/webhook/telegram', validateTelegramWebhook, processarMensagemTelegram);
+app.use('/webhook/telegram/:tenantSlug', validateTelegramWebhook, processarMensagemTelegram);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config';
+import prisma from '../../services/prisma';
 
 export interface AuthPayload {
   id: string;
@@ -8,6 +9,8 @@ export interface AuthPayload {
   email: string;
   perfil: 'SUPER_ADMIN' | 'PROFISSIONAL';
   profissionalId?: string;
+  iat?: number;
+  exp?: number;
 }
 
 declare global {
@@ -46,7 +49,7 @@ export function getTenantIdOrFail(req: Request, res: Response): string {
   return tenantId;
 }
 
-export function verifyToken(req: Request, res: Response, next: NextFunction): void {
+export async function verifyToken(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -68,6 +71,16 @@ export function verifyToken(req: Request, res: Response, next: NextFunction): vo
 
     if (!decoded.tenantId) {
       res.status(401).json({ erro: 'Token sem tenant' });
+      return;
+    }
+
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: decoded.id },
+      select: { ativo: true },
+    });
+
+    if (!usuario || !usuario.ativo) {
+      res.status(401).json({ erro: 'Usuário desativado' });
       return;
     }
 
@@ -121,7 +134,7 @@ export function requireProfissional(req: Request, res: Response, next: NextFunct
   next();
 }
 
-export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
+export async function optionalAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -142,8 +155,22 @@ export function optionalAuth(req: Request, res: Response, next: NextFunction): v
 
   try {
     const decoded = jwt.verify(token, config.jwt.secret) as AuthPayload;
-    req.usuario = decoded;
-    req.tenantId = decoded.tenantId;
+
+    if (decoded.id && decoded.tenantId) {
+      const usuario = await prisma.usuario.findUnique({
+        where: { id: decoded.id },
+        select: { ativo: true },
+      });
+
+      if (usuario?.ativo) {
+        req.usuario = decoded;
+        req.tenantId = decoded.tenantId;
+      } else {
+        req.usuario = null;
+      }
+    } else {
+      req.usuario = null;
+    }
   } catch {
     req.usuario = null;
   }

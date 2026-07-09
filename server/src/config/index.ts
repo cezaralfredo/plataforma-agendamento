@@ -11,28 +11,31 @@ const requiredInProduction = (key: string, value: string | undefined): string =>
   return value || '';
 };
 
+const validateJwtSecret = (): string => {
+  const envSecret = process.env.JWT_SECRET;
+  if (!envSecret && process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET é obrigatória em produção');
+  }
+  if (envSecret && (
+    envSecret === 'default-secret-change-me' ||
+    envSecret === 'jwt-secret-plataforma-agendamento-2024' ||
+    envSecret.length < 32
+  )) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET deve ter no mínimo 32 caracteres e não pode usar valores padrão');
+    }
+    console.warn('[WARN] JWT_SECRET fraco em uso. Configure uma chave segura de no mínimo 32 caracteres.');
+  }
+  return envSecret || crypto.randomBytes(32).toString('hex');
+};
+
 export const config = {
   port: parseInt(process.env.PORT || '3000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
 
   jwt: {
-    secret: (() => {
-      const envSecret = process.env.JWT_SECRET;
-      if (envSecret && envSecret !== 'default-secret-change-me' && envSecret !== 'jwt-secret-plataforma-agendamento-2024') {
-        return envSecret;
-      }
-      if (process.env.NODE_ENV === 'production' && !envSecret) {
-        throw new Error('JWT_SECRET deve ser configurada em produção');
-      }
-      if (!envSecret || envSecret === 'default-secret-change-me' || envSecret === 'jwt-secret-plataforma-agendamento-2024') {
-        console.warn('[WARN] JWT_SECRET fraco em uso. Configure uma chave segura via variável de ambiente.');
-        if (!envSecret) {
-          return crypto.randomBytes(32).toString('hex');
-        }
-      }
-      return envSecret;
-    })(),
+    secret: validateJwtSecret(),
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
 
@@ -67,6 +70,7 @@ export const config = {
 
   redis: {
     url: process.env.REDIS_URL || 'redis://localhost:6379',
+    password: process.env.REDIS_PASSWORD || '',
   },
 
   signup: {

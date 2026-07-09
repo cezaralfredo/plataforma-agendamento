@@ -66,8 +66,9 @@ router.get('/', verifyToken, async (req: Request, res: Response, next: NextFunct
     }
 
     if (search) {
+      const searchStr = String(search).substring(0, 100).replace(/[<>]/g, '');
       where.cliente = {
-        nome: { contains: search as string, mode: 'insensitive' },
+        nome: { contains: searchStr, mode: 'insensitive' },
       };
     }
 

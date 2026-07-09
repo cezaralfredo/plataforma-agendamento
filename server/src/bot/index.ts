@@ -1,9 +1,8 @@
 import { Request, Response } from 'express';
 import { IMessagingService, createMessagingService } from './services/messagingInterface';
 import { parseEvolutionMensagem } from '../utils/helpers';
-import { parseMetaWebhook, verifyMetaWebhook } from './services/metaWhatsAppService';
+import { parseMetaWebhook } from './services/metaWhatsAppService';
 import { parseTelegramWebhook } from './services/telegramService';
-import { config } from '../config';
 import prisma from '../services/prisma';
 import { BotResponse, BotTenantInfo } from './types';
 import { boasVindas } from './flows/boasVindas';
@@ -124,24 +123,9 @@ async function processConversation(
 }
 
 export async function processarMensagemEvolution(req: Request, res: Response): Promise<void> {
-  if (req.method === 'GET') {
-    res.status(200).json({ status: 'ok' });
-    return;
-  }
-
-  const apiKeyHeader = req.headers['apikey'] as string;
-  if (config.evolution.apiKey) {
-    if (!apiKeyHeader || apiKeyHeader !== config.evolution.apiKey) {
-      console.warn('[Bot Evolution] API key ausente ou inválida');
-      res.sendStatus(200);
-      return;
-    }
-  }
-
   const tenantSlug = req.params.tenantSlug || 'default';
   const tenant = await getTenantFromSlug(tenantSlug);
   if (!tenant) {
-    console.warn(`[Bot Evolution] Tenant não encontrado: ${tenantSlug}`);
     res.sendStatus(200);
     return;
   }
@@ -168,23 +152,6 @@ export async function processarMensagemEvolution(req: Request, res: Response): P
 }
 
 export async function processarMensagemMeta(req: Request, res: Response): Promise<void> {
-  if (req.method === 'GET') {
-    const mode = req.query['hub.mode'] as string;
-    const token = req.query['hub.verify_token'] as string;
-    const challenge = req.query['hub.challenge'] as string;
-
-    if (!config.meta.verifyToken || verifyMetaWebhook(mode, token, config.meta.verifyToken)) {
-      if (challenge) {
-        res.status(200).send(challenge);
-        return;
-      }
-      res.status(200).json({ status: 'ok' });
-      return;
-    }
-    res.status(403).send('Verificação falhou');
-    return;
-  }
-
   const parsed = parseMetaWebhook(req.body);
   if (!parsed) {
     res.sendStatus(200);
@@ -196,7 +163,6 @@ export async function processarMensagemMeta(req: Request, res: Response): Promis
   const tenant = await getTenantFromSlug(tenantSlug);
 
   if (!tenant) {
-    console.warn(`[Bot Meta] Tenant não encontrado: ${tenantSlug}`);
     res.sendStatus(200);
     return;
   }
@@ -216,6 +182,14 @@ export async function processarMensagemMeta(req: Request, res: Response): Promis
 }
 
 export async function processarMensagemTelegram(req: Request, res: Response): Promise<void> {
+  const tenantSlug = req.params.tenantSlug || 'default';
+  const tenant = await getTenantFromSlug(tenantSlug);
+
+  if (!tenant) {
+    res.sendStatus(200);
+    return;
+  }
+
   const parsed = parseTelegramWebhook(req.body);
   if (!parsed) {
     res.sendStatus(200);
@@ -223,15 +197,6 @@ export async function processarMensagemTelegram(req: Request, res: Response): Pr
   }
 
   const { from: chatId, message } = parsed;
-  const tenantSlug = req.params.tenantSlug || 'default';
-  const tenant = await getTenantFromSlug(tenantSlug);
-
-  if (!tenant) {
-    console.warn(`[Bot Telegram] Tenant não encontrado: ${tenantSlug}`);
-    res.sendStatus(200);
-    return;
-  }
-
   const messenger = createMessagingService(tenant);
 
   try {

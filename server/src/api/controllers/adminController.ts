@@ -143,9 +143,10 @@ router.get('/tenants', verifyToken, requireSuperAdmin, async (req: Request, res:
 
     const where: any = {};
     if (search) {
+      const searchStr = String(search).substring(0, 100).replace(/[<>]/g, '');
       where.OR = [
-        { nome: { contains: search as string, mode: 'insensitive' } },
-        { slug: { contains: search as string, mode: 'insensitive' } },
+        { nome: { contains: searchStr, mode: 'insensitive' } },
+        { slug: { contains: searchStr, mode: 'insensitive' } },
       ];
     }
     if (ativo !== undefined) where.ativo = ativo === 'true';

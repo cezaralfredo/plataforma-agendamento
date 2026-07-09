@@ -1,23 +1,25 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
+import { config } from '../../config';
 
 interface ErrorResponse {
   erro: string;
-  detalhes?: unknown;
   codigo?: string;
 }
 
+const isDev = config.nodeEnv === 'development';
+
 export function errorHandler(err: Error, req: Request, res: Response, next: NextFunction): void {
-  console.error('[ERROR]', err);
+  if (isDev) {
+    console.error('[ERROR]', err);
+  } else {
+    console.error('[ERROR]', err.name, '-', err.message?.substring(0, 200));
+  }
 
   if (err instanceof ZodError) {
     const response: ErrorResponse = {
       erro: 'Erro de validação',
-      detalhes: err.errors.map((e) => ({
-        campo: e.path.join('.'),
-        mensagem: e.message,
-      })),
       codigo: 'VALIDATION_ERROR',
     };
     res.status(400).json(response);
@@ -31,7 +33,6 @@ export function errorHandler(err: Error, req: Request, res: Response, next: Next
       case 'P2002':
         response = {
           erro: 'Registro duplicado',
-          detalhes: err.meta?.target,
           codigo: 'UNIQUE_CONSTRAINT',
         };
         res.status(409).json(response);
@@ -45,8 +46,7 @@ export function errorHandler(err: Error, req: Request, res: Response, next: Next
         return;
       case 'P2003':
         response = {
-          erro: 'Violação de chave estrangeira',
-          detalhes: err.meta?.field_name,
+          erro: 'Operação não permitida devido a restrições do sistema',
           codigo: 'FOREIGN_KEY',
         };
         res.status(400).json(response);
@@ -55,7 +55,6 @@ export function errorHandler(err: Error, req: Request, res: Response, next: Next
         response = {
           erro: 'Erro no banco de dados',
           codigo: 'DATABASE_ERROR',
-          detalhes: process.env.NODE_ENV === 'development' ? err.message : undefined,
         };
         res.status(500).json(response);
         return;
@@ -66,16 +65,14 @@ export function errorHandler(err: Error, req: Request, res: Response, next: Next
     const response: ErrorResponse = {
       erro: 'Erro de validação no banco de dados',
       codigo: 'DATABASE_VALIDATION',
-      detalhes: process.env.NODE_ENV === 'development' ? err.message : undefined,
     };
     res.status(400).json(response);
     return;
   }
 
   const response: ErrorResponse = {
-    erro: err.message || 'Erro interno do servidor',
+    erro: 'Erro interno do servidor',
     codigo: 'INTERNAL_ERROR',
-    detalhes: process.env.NODE_ENV === 'development' ? err.stack : undefined,
   };
 
   res.status(500).json(response);
